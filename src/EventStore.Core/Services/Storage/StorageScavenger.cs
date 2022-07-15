@@ -74,7 +74,7 @@ namespace EventStore.Core.Services.Storage {
 
 						message.Envelope.ReplyWith(new ClientMessage.ScavengeDatabaseResponse(message.CorrelationId,
 							ClientMessage.ScavengeDatabaseResponse.ScavengeResult.Stopped,
-							_currentScavenge.ScavengeId));
+							message.ScavengeId));
 					} else {
 						message.Envelope.ReplyWith(new ClientMessage.ScavengeDatabaseResponse(message.CorrelationId,
 							ClientMessage.ScavengeDatabaseResponse.ScavengeResult.InvalidScavengeId,

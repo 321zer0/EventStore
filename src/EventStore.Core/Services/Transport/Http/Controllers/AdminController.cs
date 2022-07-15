@@ -200,7 +200,7 @@ namespace EventStore.Core.Services.Transport.Http.Controllers {
 			args.Add(syncOnly);
 
 			sb.Append(" request has been received.");
-			Log.Info(sb.ToString(), args.ToArray());
+			Log.Information(sb.ToString(), args.ToArray());
 
 			var envelope = new SendToHttpEnvelope(_networkSendQueue, entity, (e, message) => {
 					var completed = message as ClientMessage.ScavengeDatabaseResponse;

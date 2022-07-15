@@ -11,6 +11,7 @@ using EventStore.Core.Bus;
 using EventStore.Core.Data;
 using EventStore.Core.DataStructures;
 using EventStore.Core.Index;
+using EventStore.Core.Index.Hashes;
 using EventStore.Core.LogAbstraction;
 using EventStore.Core.Messages;
 using EventStore.Core.Messaging;
@@ -31,6 +32,9 @@ using EventStore.Core.Services.VNode;
 using EventStore.Core.Settings;
 using EventStore.Core.TransactionLog;
 using EventStore.Core.TransactionLog.Chunks;
+using EventStore.Core.TransactionLog.LogRecords;
+using EventStore.Core.TransactionLog.Scavenging;
+using EventStore.Core.TransactionLog.Scavenging.Sqlite;
 using EventStore.Core.Authentication;
 using EventStore.Core.Helpers;
 using EventStore.Core.Services.PersistentSubscription;
@@ -51,6 +55,7 @@ using EventStore.Native.UnixSignalManager;
 using EventStore.Plugins.Authentication;
 using EventStore.Plugins.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Mono.Unix.Native;
 using ILogger = Serilog.ILogger;
 using MidFunc = System.Func<
@@ -58,12 +63,6 @@ using MidFunc = System.Func<
 	System.Func<System.Threading.Tasks.Task>,
 	System.Threading.Tasks.Task
 >;
-using EventStore.Core.TransactionLog.LogRecords; //qqq sort
-using EventStore.Core.TransactionLog.Scavenging;
-using EventStore.Core.LogV2;
-using EventStore.Core.TransactionLog.Scavenging.Sqlite;
-using EventStore.Core.TransactionLog.LogRecords;
-using Microsoft.Data.Sqlite;
 
 namespace EventStore.Core {
 	public abstract class ClusterVNode {
@@ -1206,15 +1205,16 @@ namespace EventStore.Core {
 						restLoggingThreshold: TimeSpan.FromMilliseconds(10_000),
 						activePercent: message.ThrottlePercent ?? 100);
 
-					var metastreamLookup = new LogV2SystemStreams();
-					var streamIdConverter = new LogV2StreamIdConverter();
+					if (logFormat is not LogFormatAbstractor<string> logFormatV2)
+						throw new NotSupportedException("Scavenge is not yet supported on Log V3");
+
 					var cancellationCheckPeriod = 1024;
 
-					var longHasher = new CompositeHasher<string>(logFormat.LowHasher, logFormat.HighHasher);
+					var longHasher = new CompositeHasher<TStreamId>(logFormat.LowHasher, logFormat.HighHasher);
 
 					// the backends (and therefore connections) are scoped to the run of the scavenge
 					// so that we don't keep hold of memory used for the page caches between scavenges
-					var backendPool = new ObjectPool<IScavengeStateBackend<string>>(
+					var backendPool = new ObjectPool<IScavengeStateBackend<TStreamId>>(
 						objectPoolName: "scavenge backend pool",
 						initialCount: 1,
 						maxCount: TFChunkScavenger.MaxThreadCount + 1,
@@ -1226,33 +1226,33 @@ namespace EventStore.Core {
 							};
 							var connection = new SqliteConnection(connectionStringBuilder.ConnectionString);
 							connection.Open();
-							var sqlite = new SqliteScavengeBackend<string>(
+							var sqlite = new SqliteScavengeBackend<TStreamId>(
 								cacheSizeInBytes: options.Database.ScavengeBackendCacheSize);
 							sqlite.Initialize(connection);
 							return sqlite;
 						},
 						dispose: backend => backend.Dispose());
 
-					var state = new ScavengeState<string>(
+					var state = new ScavengeState<TStreamId>(
 						longHasher,
-						metastreamLookup,
+						logFormat.Metastreams,
 						backendPool);
 
-					var accumulator = new Accumulator<string>(
+					var accumulator = new Accumulator<TStreamId>(
 						chunkSize: TFConsts.ChunkSize,
-						metastreamLookup: metastreamLookup,
-						chunkReader: new ChunkReaderForAccumulator<string>(
+						metastreamLookup: logFormat.Metastreams,
+						chunkReader: new ChunkReaderForAccumulator<TStreamId>(
 							Db.Manager,
-							metastreamLookup,
-							streamIdConverter,
+							logFormat.Metastreams,
+							logFormat.StreamIdConverter,
 							Db.Config.ReplicationCheckpoint,
 							TFConsts.ChunkSize),
-						index: new IndexReaderForAccumulator(readIndex),
+						index: new IndexReaderForAccumulator<TStreamId>(readIndex),
 						cancellationCheckPeriod: cancellationCheckPeriod,
 						throttle: throttle);
 
-					var calculator = new Calculator<string>(
-						new IndexReaderForCalculator(
+					var calculator = new Calculator<TStreamId>(
+						new IndexReaderForCalculator<TStreamId>(
 							readIndex,
 							() => new TFReaderLease(readerPool),
 							state.LookupUniqueHashUser),
@@ -1261,9 +1261,9 @@ namespace EventStore.Core {
 						checkpointPeriod: 32_768,
 						throttle: throttle);
 
-					var chunkExecutor = new ChunkExecutor<string, LogRecord>(
-						metastreamLookup,
-						new ChunkManagerForExecutor(Db.Manager, Db.Config),
+					var chunkExecutor = new ChunkExecutor<TStreamId, ILogRecord>(
+						logFormat.Metastreams,
+						new ChunkManagerForExecutor<TStreamId>(Db.Manager, Db.Config),
 						chunkSize: Db.Config.ChunkSize,
 						unsafeIgnoreHardDeletes: options.Database.UnsafeIgnoreHardDelete,
 						cancellationCheckPeriod: cancellationCheckPeriod,
@@ -1275,9 +1275,9 @@ namespace EventStore.Core {
 						backend: new OldScavengeChunkMergerBackend(db: Db),
 						throttle: throttle);
 
-					var indexExecutor = new IndexExecutor<string>(
+					var indexExecutor = new IndexExecutor<TStreamId>(
 						new IndexScavenger(tableIndex),
-						new ChunkReaderForIndexExecutor(() => new TFReaderLease(readerPool)),
+						new ChunkReaderForIndexExecutor<TStreamId>(() => new TFReaderLease(readerPool)),
 						unsafeIgnoreHardDeletes: options.Database.UnsafeIgnoreHardDelete,
 						restPeriod: 32_768,
 						throttle: throttle);
@@ -1287,7 +1287,7 @@ namespace EventStore.Core {
 
 					var scavengePointSource = new ScavengePointSource(ioDispatcher);
 
-					return new Scavenger<string>(
+					return new Scavenger<TStreamId>(
 						checkPreconditions: () => {
 							tableIndex.Visit(table => {
 								if (table.Version <= PTableVersions.IndexV1)
@@ -1314,7 +1314,7 @@ namespace EventStore.Core {
 
 			} else {
 				scavengerFactory = new ScavengerFactory((message, logger) =>
-					new OldScavenger(
+					new OldScavenger<TStreamId>(
 						alwaysKeepScaveged: options.Database.AlwaysKeepScavenged,
 						mergeChunks: !options.Database.DisableScavengeMerging,
 						startFromChunk: message.StartFromChunk,

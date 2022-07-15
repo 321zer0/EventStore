@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.LogRecords;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
@@ -12,7 +13,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task simple_maxage() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -43,7 +44,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task keep_last_event() {
 			// records kept in the index because they are 'maybe' expired
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -70,7 +71,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task whole_chunk_expired() {
 			// the records can be removed from the chunks and the index
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -94,7 +95,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task whole_chunk_expired_keep_last_event() {
 			// the records can be removed from the chunks and the index
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -116,7 +117,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task whole_chunk_active() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

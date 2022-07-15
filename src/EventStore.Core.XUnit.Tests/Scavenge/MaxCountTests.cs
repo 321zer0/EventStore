@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
 using Xunit;
@@ -10,7 +11,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task simple_maxcount() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -30,7 +31,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task no_stream() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -46,7 +47,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task large_maxcount() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

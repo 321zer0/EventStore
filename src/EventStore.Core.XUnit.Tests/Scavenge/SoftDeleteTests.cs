@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Scavenging;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
@@ -17,7 +18,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			// the scavenge point operates as if it were in the middle of events supposed to be written
 			// transactionally.
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -44,7 +45,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task simple_soft_delete() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -68,7 +69,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task soft_delete_and_recreate() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -92,7 +93,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			var t = 0;
 
 			// SP-0 scavenge
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -134,7 +135,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 					});
 
 			// SP-1 scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -153,7 +154,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_soft_delete_recreate_and_hard_delete() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -180,7 +181,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task can_soft_delete_and_hard_delete() {
 			// this might not actually be supported by the database
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

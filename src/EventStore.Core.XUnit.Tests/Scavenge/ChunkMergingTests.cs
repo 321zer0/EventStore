@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.LogRecords;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
@@ -11,7 +12,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_merge() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithMergeChunks(true)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -25,7 +26,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 					.Chunk(ScavengePointRec(t++))) // keep
 				.WithState(x => x.WithConnectionPool(Fixture.DbConnectionPool))
 				.RunAsync(
-					x => new LogRecord[][] {
+					x => new ILogRecord[][] {
 						// chunk 0, 1 and 2 are the same chunk now
 						new[] {
 							x.Recs[0][1],
@@ -52,7 +53,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_not_merge() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

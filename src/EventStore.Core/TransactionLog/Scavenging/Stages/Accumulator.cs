@@ -40,7 +40,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			IScavengeStateForAccumulator<TStreamId> state,
 			CancellationToken cancellationToken) {
 
-			Log.Trace("SCAVENGING: Starting new scavenge accumulation phase: {prevScavengePoint} to {scavengePoint}",
+			Log.Debug("SCAVENGING: Starting new scavenge accumulation phase: {prevScavengePoint} to {scavengePoint}",
 				prevScavengePoint?.GetName() ?? "beginning of log",
 				scavengePoint.GetName());
 
@@ -65,7 +65,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			IScavengeStateForAccumulator<TStreamId> state,
 			CancellationToken cancellationToken) {
 
-			Log.Trace("SCAVENGING: Accumulating from checkpoint: {checkpoint}", checkpoint);
+			Log.Debug("SCAVENGING: Accumulating from checkpoint: {checkpoint}", checkpoint);
 			var stopwatch = new Stopwatch();
 
 			// bounds are ok because we wont try to read past the scavenge point
@@ -140,7 +140,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 					scavengePoint,
 					doneLogicalChunkNumber: logicalChunkNumber));
 
-				Log.Trace(
+				Log.Debug(
 					"SCAVENGING: Accumulated {countAccumulatedRecords:N0} records in chunk {chunk} in {elapsed}. " +
 					"{rate:N2} records per second. " +
 					"Chunk total: {chunkTotalElapsed}",
@@ -284,7 +284,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			}
 
 			if (!isInOrder) {
-				Log.Warn("SCAVENGING: Accumulator found out of order metadata: {stream}:{eventNumber}",
+				Log.Information("SCAVENGING: Accumulator found out of order metadata: {stream}:{eventNumber}",
 					record.StreamId,
 					record.EventNumber);
 				return;

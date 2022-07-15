@@ -1,16 +1,19 @@
 ﻿using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Scavenging;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
 using Xunit;
 using static EventStore.Core.XUnit.Tests.Scavenge.StreamMetadatas;
 
+#pragma warning disable CS0162 // Unreachable code detected
+
 namespace EventStore.Core.XUnit.Tests.Scavenge {
 	public class ChunkWeightTests : SqliteDbPerTest<ChunkWeightTests> {
 		[Fact]
 		public async Task simple() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -31,7 +34,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task max_age_maybe_discard() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -56,7 +59,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task non_contiguous_events() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -97,7 +100,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				records[i] = Rec.Write(t++, "ab-1");
 			}
 
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -120,7 +123,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task metadata_replaced_by_metadata() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -139,7 +142,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task metadata_replaced_by_tombstone() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -158,7 +161,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task metadata_replaced_multiple_times() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

@@ -29,6 +29,11 @@ namespace EventStore.Core.Tests.TransactionLog.Scavenging.Helpers {
 		public IList<ScavengedLog> Merged { get; } = new List<ScavengedLog>();
 		public IList<IndexScavengedLog> ScavengedIndices { get; } = new List<IndexScavengedLog>();
 
+		public void ScavengeStarted() {
+			Started = true;
+			StartedCallback?.Invoke(this, EventArgs.Empty);
+		}
+
 		public void ScavengeStarted(bool alwaysKeepScavenged, bool mergeChunks, int startFromChunk, int threads) {
 			AlwaysKeepScavenged = alwaysKeepScavenged;
 			MergeChunks = mergeChunks;

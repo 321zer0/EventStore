@@ -69,7 +69,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 
 		public async Task ScavengeAsync(CancellationToken cancellationToken) {
 			await Task.Yield(); // get off the main queue
-			Log.Trace("SCAVENGING: started scavenging DB.");
+			Log.Debug("SCAVENGING: started scavenging DB.");
 			LogCollisions();
 
 			_recordedTimes.Clear();
@@ -80,18 +80,18 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			try {
 				_scavengerLogger.ScavengeStarted();
 
-				await RunInternal(_scavengerLogger, stopwatch, cancellationToken);
+				await RunInternal(_scavengerLogger, stopwatch, cancellationToken).ConfigureAwait(false);
 
-				Log.Trace(
+				Log.Debug(
 					"SCAVENGING: total time taken: {elapsed}, total space saved: {spaceSaved}.",
 					stopwatch.Elapsed, _scavengerLogger.SpaceSaved);
 
 			} catch (OperationCanceledException) {
-				Log.Info("SCAVENGING: Scavenge cancelled.");
+				Log.Information("SCAVENGING: Scavenge cancelled.");
 				result = ScavengeResult.Stopped;
 			} catch (Exception exc) {
 				result = ScavengeResult.Failed;
-				Log.ErrorException(exc, "SCAVENGING: error while scavenging DB.");
+				Log.Error(exc, "SCAVENGING: error while scavenging DB.");
 				error = string.Format("Error while scavenging DB: {0}.", exc.Message);
 			} finally {
 				LogCollisions();
@@ -99,7 +99,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				try {
 					_scavengerLogger.ScavengeCompleted(result, error, stopwatch.Elapsed);
 				} catch (Exception ex) {
-					Log.ErrorException(
+					Log.Error(
 						ex,
 						"SCAVENGING: Error whilst recording scavenge completed. " +
 						"Scavenge result: {result}, Elapsed: {elapsed}, Original error: {e}",
@@ -110,10 +110,10 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 
 		private void LogCollisions() {
 			var collisions = _state.AllCollisions().ToArray();
-			Log.Trace("SCAVENGING: {count} KNOWN COLLISIONS", collisions.Length);
+			Log.Debug("SCAVENGING: {count} KNOWN COLLISIONS", collisions.Length);
 
 			foreach (var collision in collisions) {
-				Log.Trace("SCAVENGING: KNOWN COLLISION: \"{collision}\"", collision);
+				Log.Debug("SCAVENGING: KNOWN COLLISION: \"{collision}\"", collision);
 			}
 		}
 
@@ -137,25 +137,25 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				// there is no checkpoint, so this is the first scavenge of this scavenge state
 				// (not necessarily the first scavenge of this database, old scavenged may have been run
 				// or new scavenges run and the scavenge state deleted)
-				Log.Trace("SCAVENGING: Starting a new scavenge with no checkpoint");
+				Log.Debug("SCAVENGING: Starting a new scavenge with no checkpoint");
 				await StartNewAsync(
 					prevScavengePoint: null,
 					scavengerLogger,
 					stopwatch,
-					cancellationToken);
+					cancellationToken).ConfigureAwait(false);
 
 			} else if (checkpoint is ScavengeCheckpoint.Done done) {
 				// start of a subsequent scavenge.
-				Log.Trace("SCAVENGING: Starting a new scavenge after checkpoint {checkpoint}", checkpoint);
+				Log.Debug("SCAVENGING: Starting a new scavenge after checkpoint {checkpoint}", checkpoint);
 				await StartNewAsync(
 					prevScavengePoint: done.ScavengePoint,
 					scavengerLogger,
 					stopwatch,
-					cancellationToken);
+					cancellationToken).ConfigureAwait(false);
 
 			} else {
 				// the other cases are continuing an incomplete scavenge
-				Log.Trace("SCAVENGING: Continuing a scavenge from {checkpoint}", checkpoint);
+				Log.Debug("SCAVENGING: Continuing a scavenge from {checkpoint}", checkpoint);
 
 				if (checkpoint is ScavengeCheckpoint.Accumulating accumulating) {
 					Time(stopwatch, "Accumulation", () =>
@@ -203,15 +203,15 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			f();
 			var elapsed = stopwatch.Elapsed - start;
 			_state.LogStats();
-			Log.Trace($"SCAVENGING: {_getThrottleStats()}");
-			Log.Trace("SCAVENGING: " + name + " took {elapsed}", elapsed);
-			Log.Trace("");
+			Log.Debug($"SCAVENGING: {_getThrottleStats()}");
+			Log.Debug("SCAVENGING: " + name + " took {elapsed}", elapsed);
+			Log.Debug("");
 			_recordedTimes[name] = elapsed;
 		}
 
 		private void LogTimes() {
 			foreach (var key in _recordedTimes.Keys.OrderBy(x => x)) {
-				Log.Trace("SCAVENGING: {name} took {elapsed}", key, _recordedTimes[key]);
+				Log.Debug("SCAVENGING: {name} took {elapsed}", key, _recordedTimes[key]);
 			}
 		}
 
@@ -226,43 +226,49 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			// nextScavengePoint is the one we are about to scavenge up to
 
 			ScavengePoint nextScavengePoint;
-			var latestScavengePoint = await _scavengePointSource.GetLatestScavengePointOrDefaultAsync();
+			var latestScavengePoint = await _scavengePointSource
+				.GetLatestScavengePointOrDefaultAsync(cancellationToken)
+				.ConfigureAwait(false);
 			if (latestScavengePoint == null) {
 				if (_syncOnly) {
-					Log.Trace("SCAVENGING: No existing scavenge point to sync with, nothing to do.");
+					Log.Debug("SCAVENGING: No existing scavenge point to sync with, nothing to do.");
 					return;
 				} else {
-					Log.Trace("SCAVENGING: creating the first scavenge point.");
+					Log.Debug("SCAVENGING: creating the first scavenge point.");
 					// no latest scavenge point, create the first one
 					nextScavengePoint = await _scavengePointSource
 						.AddScavengePointAsync(
 							ExpectedVersion.NoStream,
-							threshold: _thresholdForNewScavenge);
+							threshold: _thresholdForNewScavenge,
+							cancellationToken)
+						.ConfigureAwait(false);
 				}
 			} else {
 				// got the latest scavenge point
 				if (prevScavengePoint == null ||
 					prevScavengePoint.EventNumber < latestScavengePoint.EventNumber) {
 					// the latest scavengepoint is suitable
-					Log.Trace(
+					Log.Debug(
 						"SCAVENGING: using existing scavenge point {scavengePointNumber}",
 						latestScavengePoint.EventNumber);
 					nextScavengePoint = latestScavengePoint;
 				} else {
 					if (_syncOnly) {
-						Log.Trace("SCAVENGING: No existing scavenge point to sync with, nothing to do.");
+						Log.Debug("SCAVENGING: No existing scavenge point to sync with, nothing to do.");
 						return;
 					} else {
 						// the latest scavengepoint is the prev scavenge point, so create a new one
 						var expectedVersion = prevScavengePoint.EventNumber;
-						Log.Trace(
+						Log.Debug(
 							"SCAVENGING: creating the next scavenge point: {scavengePointNumber}",
 							expectedVersion + 1);
 
 						nextScavengePoint = await _scavengePointSource
 							.AddScavengePointAsync(
 								expectedVersion,
-								threshold: _thresholdForNewScavenge);
+								threshold: _thresholdForNewScavenge,
+								cancellationToken)
+							.ConfigureAwait(false);
 					}
 				}
 			}

@@ -19,7 +19,8 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			// todo: if time permits we could stop after the chunk with the scavenge point
 			// todo: if time permits we could start with the minimum executed chunk this scavenge
 			// todo: if time permits we could add some way of checkpointing during the merges
-			TFChunkScavenger.MergePhase(
+			// todo: move MergePhase to non-generic TFChunkScavenger
+			TFChunkScavenger<string>.MergePhase(
 				db: _db,
 				maxChunkDataSize: _db.Config.ChunkSize,
 				scavengerLog: scavengerLogger,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using EventStore.Core.Services;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
@@ -12,7 +13,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 	// still have to write the scavengepoint to the chunks and also to the index in order to behave in
 	// reasonable way.
 	public class MockScavengePointSource : IScavengePointSource {
-		private readonly LogRecord[][] _log;
+		private readonly ILogRecord[][] _log;
 		private readonly DateTime _effectiveNow;
 		private readonly List<ScavengePoint> _added;
 
@@ -26,7 +27,9 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			_added = added;
 		}
 
-		public Task<ScavengePoint> GetLatestScavengePointOrDefaultAsync() {
+		public Task<ScavengePoint> GetLatestScavengePointOrDefaultAsync(
+			CancellationToken cancellationToken) {
+
 			ScavengePoint scavengePoint = default;
 
 			foreach (var record in AllRecords()) {
@@ -46,8 +49,12 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			return Task.FromResult(scavengePoint);
 		}
 
-		public async Task<ScavengePoint> AddScavengePointAsync(long expectedVersion, int threshold) {
-			var latestScavengePoint = await GetLatestScavengePointOrDefaultAsync();
+		public async Task<ScavengePoint> AddScavengePointAsync(
+			long expectedVersion,
+			int threshold,
+			CancellationToken cancellationToken) {
+
+			var latestScavengePoint = await GetLatestScavengePointOrDefaultAsync(cancellationToken);
 			var actualVersion = latestScavengePoint != null
 				? latestScavengePoint.EventNumber
 				: -1;
@@ -70,7 +77,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			throw new OperationCanceledException();
 		}
 
-		private IEnumerable<LogRecord> AllRecords() {
+		private IEnumerable<ILogRecord> AllRecords() {
 			for (var chunkIndex = 0; chunkIndex < _log.Length; chunkIndex++) {
 				for (var recordIndex = 0; recordIndex < _log[chunkIndex].Length; recordIndex++) {
 					yield return _log[chunkIndex][recordIndex];

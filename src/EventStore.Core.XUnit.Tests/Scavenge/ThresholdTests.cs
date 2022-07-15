@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
 using Xunit;
@@ -10,7 +11,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task negative_threshold_executes_all_chunks() {
 			var threshold = -1;
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					// chunk 0: weight 2
@@ -97,7 +98,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task zero_threshold_executes_all_chunks_with_positive_weight() {
 			var threshold = 0;
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					// chunk 0: weight 2
@@ -183,7 +184,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task positive_threshold_executes_all_chunks_that_exceed_it() {
 			var threshold = 2;
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					// chunk 0: weight 2

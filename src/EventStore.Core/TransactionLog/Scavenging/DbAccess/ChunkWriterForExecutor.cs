@@ -6,18 +6,18 @@ using EventStore.Core.TransactionLog.Chunks.TFChunk;
 using EventStore.Core.TransactionLog.LogRecords;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
-	public class ChunkWriterForExecutor : IChunkWriterForExecutor<string, LogRecord> {
+	public class ChunkWriterForExecutor<TStreamId> : IChunkWriterForExecutor<TStreamId, ILogRecord> {
 		const int BatchLength = 2000;
-		private readonly ChunkManagerForExecutor _manager;
+		private readonly ChunkManagerForExecutor<TStreamId> _manager;
 		private readonly TFChunk _outputChunk;
 		private readonly List<List<PosMap>> _posMapss;
 		private int _lastFlushedPage = -1;
 		private long _fileSize = 0;
 
 		public ChunkWriterForExecutor(
-			ChunkManagerForExecutor manager,
+			ChunkManagerForExecutor<TStreamId> manager,
 			TFChunkDbConfig dbConfig,
-			IChunkReaderForExecutor<string, LogRecord> sourceChunk) {
+			IChunkReaderForExecutor<TStreamId, ILogRecord> sourceChunk) {
 
 			_manager = manager;
 
@@ -39,13 +39,14 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				unbuffered: dbConfig.Unbuffered,
 				writethrough: dbConfig.WriteThrough,
 				initialReaderCount: dbConfig.InitialReaderCount,
+				maxReaderCount: dbConfig.MaxReaderCount,
 				reduceFileCachePressure: dbConfig.ReduceFileCachePressure);
 		}
 
 		public string FileName { get; }
 
-		public void WriteRecord(RecordForExecutor<string, LogRecord> record) {
-			var posMap = TFChunkScavenger.WriteRecord(_outputChunk, record.Record);
+		public void WriteRecord(RecordForExecutor<TStreamId, ILogRecord> record) {
+			var posMap = TFChunkScavenger<TStreamId>.WriteRecord(_outputChunk, record.Record);
 
 			// add the posmap in memory so we can write it when we complete
 			var lastBatch = _posMapss[_posMapss.Count - 1];
@@ -90,7 +91,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 		public void Abort(bool deleteImmediately) {
 			if (deleteImmediately) {
 				_outputChunk.Dispose();
-				TFChunkScavenger.DeleteTempChunk(FileName, TFChunkScavenger.MaxRetryCount);
+				TFChunkScavenger<TStreamId>.DeleteTempChunk(FileName, TFChunkScavenger.MaxRetryCount);
 			} else {
 				_outputChunk.MarkForDeletion();
 			}

@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using EventStore.Core.Data;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Scavenging;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
@@ -17,7 +18,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			bool isTombstoned) {
 
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(Rec.Write(t++, "$$ab-1", "$metadata", metadata: metadata))

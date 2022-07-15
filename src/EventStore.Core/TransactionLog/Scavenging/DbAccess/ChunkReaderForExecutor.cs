@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using EventStore.Core.TransactionLog.Chunks.TFChunk;
 using EventStore.Core.TransactionLog.LogRecords;
+using EventStore.LogCommon;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
-	public class ChunkReaderForExecutor : IChunkReaderForExecutor<string, LogRecord> {
+	public class ChunkReaderForExecutor<TStreamId> : IChunkReaderForExecutor<TStreamId, ILogRecord> {
 		private readonly TFChunk _chunk;
 
 		public ChunkReaderForExecutor(TFChunk chunk) {
@@ -26,8 +27,8 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 
 		// similar to TFChunkScavenger.TraverseChunkBasic
 		public IEnumerable<bool> ReadInto(
-			RecordForExecutor<string, LogRecord>.NonPrepare nonPrepare,
-			RecordForExecutor<string, LogRecord>.Prepare prepare) {
+			RecordForExecutor<TStreamId, ILogRecord>.NonPrepare nonPrepare,
+			RecordForExecutor<TStreamId, ILogRecord>.Prepare prepare) {
 
 			var result = _chunk.TryReadFirst();
 			while (result.Success) {
@@ -36,7 +37,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 					nonPrepare.SetRecord(result.RecordLength, record);
 					yield return false;
 				} else {
-					var sourcePrepare = record as PrepareLogRecord;
+					var sourcePrepare = record as IPrepareLogRecord<TStreamId>;
 					prepare.SetRecord(
 						length: result.RecordLength,
 						logPosition: record.LogPosition,

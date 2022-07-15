@@ -20,11 +20,11 @@ namespace EventStore.Core.Services.Storage {
 			_create(message, logger);
 	}
 
-	public class OldScavenger : IScavenger {
+	public class OldScavenger<TStreamId> : IScavenger {
 		private readonly bool _alwaysKeepScavenged;
 		private readonly bool _mergeChunks;
 		private readonly int _startFromChunk;
-		private readonly TFChunkScavenger _tfChunkScavenger;
+		private readonly TFChunkScavenger<TStreamId> _tfChunkScavenger;
 
 		public string ScavengeId => _tfChunkScavenger.ScavengeId;
 
@@ -32,7 +32,7 @@ namespace EventStore.Core.Services.Storage {
 			bool alwaysKeepScaveged,
 			bool mergeChunks,
 			int startFromChunk,
-			TFChunkScavenger tfChunkScavenger) {
+			TFChunkScavenger<TStreamId> tfChunkScavenger) {
 
 			_alwaysKeepScavenged = alwaysKeepScaveged;
 			_mergeChunks = mergeChunks;

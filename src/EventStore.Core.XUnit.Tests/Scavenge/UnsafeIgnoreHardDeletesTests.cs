@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Scavenging;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
@@ -10,7 +11,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task simple_tombstone() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithUnsafeIgnoreHardDeletes()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -38,7 +39,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 			// the normal scavenge with the tombstone
 			var t = 0;
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -65,7 +66,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				});
 
 			// the second scavenge with unsafeharddeletes should remove the tombstone
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
 				.WithState(x => x.WithConnectionPool(Fixture.DbConnectionPool))
@@ -89,7 +90,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 			// the normal scavenge with the tombstone
 			var t = 0;
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -121,7 +122,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				});
 
 			// the second scavenge with unsafeharddeletes
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)

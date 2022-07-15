@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Chunks;
 using EventStore.Core.TransactionLog.Scavenging;
@@ -18,7 +19,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			var newScavengePoint = new List<ScavengePoint>();
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -48,7 +49,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			var newScavengePoint = new List<ScavengePoint>();
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -94,7 +95,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			// and then some new records added including a SP. it should perform an an incremental
 			// scavenge using that SP.
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -228,7 +229,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			// first scavenge creates the first scavenge point SP-1
 			var newScavengePoint = new List<ScavengePoint>();
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -247,7 +248,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_sync_only_with_no_scavenge_point() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -266,7 +267,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task can_sync_only_with_completed_scavenge_point() {
 			var newScavengePoint = new List<ScavengePoint>();
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(ScavengePointRec(t++)) // SP-0
@@ -293,7 +294,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			// say we deleted the state, or old scavenge has been run but not new scavenge
 			// so there is no state.
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -332,7 +333,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task accumulates_from_right_place_sp_in_chunk_0() {
 			// set up as if we have done a scavenge with a SP in chunk 0
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(ScavengePointRec(t++)) // SP-0
@@ -407,7 +408,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task accumulates_from_right_place_sp_in_chunk_2() {
 			// set up as if we have done a scavenge with a SP in chunk 2
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(ScavengePointRec(t++)) // SP-0
@@ -492,7 +493,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task cannot_move_discard_points_backward() {
 			// scavenge where SP-0 has been run. about to run SP-1
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -542,7 +543,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task stream_starts_after_scavenge_point() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

@@ -129,7 +129,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				out var collision);
 
 			if (collisionResult == CollisionResult.NewCollision) {
-				Log.Info(
+				Log.Information(
 					"SCAVENGING: Detected collision between streams \"{streamId}\" and \"{previous}\"",
 					streamId, collision);
 

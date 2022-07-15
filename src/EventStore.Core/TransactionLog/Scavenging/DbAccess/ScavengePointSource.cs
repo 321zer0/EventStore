@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using EventStore.Core.Data;
 using EventStore.Core.Helpers;
@@ -17,7 +18,9 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			_ioDispatcher = ioDispatcher;
 		}
 
-		public async Task<ScavengePoint> GetLatestScavengePointOrDefaultAsync() {
+		public async Task<ScavengePoint> GetLatestScavengePointOrDefaultAsync(
+			CancellationToken cancellationToken) {
+
 			Log.Information("SCAVENGING: Getting latest scavenge point...");
 
 			var readTcs = new TaskCompletionSource<ResolvedEvent[]>(
@@ -46,7 +49,10 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				},
 				corrId: Guid.NewGuid());
 
-			var events = await readTcs.Task.ConfigureAwait(false);
+			ResolvedEvent[] events;
+			using (cancellationToken.Register(() => readTcs.TrySetCanceled())) {
+				events = await readTcs.Task.ConfigureAwait(false);
+			}
 
 			if (events.Length == 0) {
 				Log.Information("SCAVENGING: No scavenge points exist");
@@ -68,11 +74,15 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				effectiveNow: scavengePointEvent.TimeStamp,
 				threshold: scavengePointPayload.Threshold);
 
-			Log.Information("SCAVENGING: Got latest scavenge point {scavengePoint}", scavengePoint);
+			Log.Information("SCAVENGING: Latest scavenge point found is {scavengePoint}", scavengePoint);
 			return scavengePoint;
 		}
 
-		public async Task<ScavengePoint> AddScavengePointAsync(long expectedVersion, int threshold) {
+		public async Task<ScavengePoint> AddScavengePointAsync(
+			long expectedVersion,
+			int threshold,
+			CancellationToken cancellationToken) {
+
 			Log.Information("SCAVENGING: Adding new scavenge point #{eventNumber} with threshold {threshold}...",
 				expectedVersion + 1, threshold);
 
@@ -102,18 +112,40 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				}
 			);
 
-			await writeTcs.Task.ConfigureAwait(false);
+			using (cancellationToken.Register(() => writeTcs.TrySetCanceled())) {
+				await writeTcs.Task.ConfigureAwait(false);
+			}
 
-			Log.Information("SCAVENGING: Added new scavenge point");
+			Log.Information("SCAVENGING: Added new scavenge point.");
 
-			var scavengePoint = await GetLatestScavengePointOrDefaultAsync().ConfigureAwait(false);
+			// initial chance to replicate (handy if we are follower)
+			await Task.Delay(500, cancellationToken).ConfigureAwait(false);
 
-			if (scavengePoint.EventNumber != expectedVersion + 1)
-				throw new Exception(
-					$"Unexpected error: new scavenge point is number {scavengePoint.EventNumber} " +
-					$"instead of {expectedVersion + 1}");
+			const int MaxAttempts = 30;
+			var attempt = 0;
+			while (true) {
+				var scavengePoint = await GetLatestScavengePointOrDefaultAsync(cancellationToken)
+					.ConfigureAwait(false);
 
-			return scavengePoint;
+				// success
+				if (scavengePoint.EventNumber == expectedVersion + 1)
+					return scavengePoint;
+
+				// give up
+				if (++attempt > MaxAttempts)
+					throw new Exception(
+						$"Unable to read back new scavenge point {expectedVersion + 1}. " +
+						$"This node is most likely significantly behind the leader. " +
+						$"Allow it to catch up and then try again. ");
+
+				// retry
+				Log.Information(
+					"SCAVENGING: Did not read new scavenge point. " +
+					"Found {actual} but expected {expected}. Retrying {attempt}/{maxAttempts}...",
+					scavengePoint.EventNumber, expectedVersion + 1, attempt, MaxAttempts);
+
+				await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+			}
 		}
 	}
 }

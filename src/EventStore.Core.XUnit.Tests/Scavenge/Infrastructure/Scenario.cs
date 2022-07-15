@@ -8,9 +8,10 @@ using EventStore.Core.Data;
 using EventStore.Core.DataStructures;
 using EventStore.Core.Index;
 using EventStore.Core.Index.Hashes;
-using EventStore.Core.LogV2;
+using EventStore.Core.LogAbstraction;
 using EventStore.Core.Services.Storage.ReaderIndex;
 using EventStore.Core.Settings;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.Fakes;
 using EventStore.Core.Tests.Index.Hashers;
 using EventStore.Core.Tests.TransactionLog;
@@ -23,25 +24,32 @@ using EventStore.Core.Util;
 using Xunit;
 using static EventStore.Core.XUnit.Tests.Scavenge.StreamMetadatas;
 
-namespace EventStore.Core.XUnit.Tests.Scavenge {
-	// sort of similar to ScavengeTestScenario
-	public class Scenario {
-		private const int Threads = 1;
-		public const bool CollideEverything = false;
+#pragma warning disable CS0162 // Unreachable code detected
 
-		private Func<TFChunkDbConfig, DbResult> _getDb;
-		private Func<ScavengeStateBuilder, ScavengeStateBuilder> _stateTransform;
-		private Action<ScavengeState<string>> _assertState;
+namespace EventStore.Core.XUnit.Tests.Scavenge {
+	public class Scenario {
+		protected const int Threads = 1;
+		public const bool CollideEverything = false;
+	}
+
+	// sort of similar to ScavengeTestScenario
+	public class Scenario<TLogFormat, TStreamId> : Scenario {
+		private static EqualityComparer<TStreamId> StreamIdComparer { get; } =
+			EqualityComparer<TStreamId>.Default;
+
+		private Func<TFChunkDbConfig, LogFormatAbstractor<TStreamId>, DbResult> _getDb;
+		private Func<ScavengeStateBuilder<TStreamId>, ScavengeStateBuilder<TStreamId>> _stateTransform;
+		private Action<ScavengeState<TStreamId>> _assertState;
 		private List<ScavengePoint> _newScavengePoint;
 		private ITFChunkScavengerLog _logger;
 
 		private bool _mergeChunks;
 		private bool _syncOnly;
 		private string _dbPath;
-		private string _accumulatingCancellationTrigger;
-		private string _calculatingCancellationTrigger;
-		private string _executingChunkCancellationTrigger;
-		private string _executingIndexEntryCancellationTrigger;
+		private TStreamId _accumulatingCancellationTrigger;
+		private TStreamId _calculatingCancellationTrigger;
+		private TStreamId _executingChunkCancellationTrigger;
+		private TStreamId _executingIndexEntryCancellationTrigger;
 		private Type _cancelWhenCheckpointingType;
 		private (string Message, int Line)[] _expectedTrace;
 		private bool _unsafeIgnoreHardDeletes;
@@ -49,45 +57,54 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		protected Tracer Tracer { get; set; }
 
 		public Scenario() {
-			_getDb = dbConfig => throw new Exception("db not configured. call WithDb");
+			_getDb = (_, _) => throw new Exception("db not configured. call WithDb");
 			_stateTransform = x => x;
 			Tracer = new Tracer();
 		}
 
-		public Scenario WithTracerFrom(Scenario scenario) {
+		public Scenario<TLogFormat, TStreamId> WithTracerFrom(Scenario<TLogFormat, TStreamId> scenario) {
 			Tracer = scenario.Tracer;
 			return this;
 		}
 
-		public Scenario WithUnsafeIgnoreHardDeletes(bool unsafeIgnoreHardDeletes = true) {
+		public Scenario<TLogFormat, TStreamId> WithUnsafeIgnoreHardDeletes(
+			bool unsafeIgnoreHardDeletes = true) {
+
 			_unsafeIgnoreHardDeletes = unsafeIgnoreHardDeletes;
 			return this;
 		}
 
-		public Scenario WithDbPath(string path) {
+		public Scenario<TLogFormat, TStreamId> WithDbPath(string path) {
 			_dbPath = path;
 			return this;
 		}
 
-		public Scenario WithDb(DbResult db) {
-			_getDb = _ => {
+		public Scenario<TLogFormat, TStreamId> WithDb(DbResult db) {
+			_getDb = (_, _) => {
 				db.Db.Open();
 				return db;
 			};
 			return this;
 		}
 
-		public Scenario WithDb(Func<TFChunkDbCreationHelper, TFChunkDbCreationHelper> f) {
-			_getDb = dbConfig => f(new TFChunkDbCreationHelper(dbConfig)).CreateDb();
+		public Scenario<TLogFormat, TStreamId> WithDb(
+			Func<
+				TFChunkDbCreationHelper<TLogFormat, TStreamId>,
+				TFChunkDbCreationHelper<TLogFormat, TStreamId>> f) {
+
+			_getDb = (dbConfig, logFormat) =>
+				f(new TFChunkDbCreationHelper<TLogFormat, TStreamId>(dbConfig, logFormat)).CreateDb();
 			return this;
 		}
 
-		public Scenario WithLogger(ITFChunkScavengerLog logger) {
+		public Scenario<TLogFormat, TStreamId> WithLogger(ITFChunkScavengerLog logger) {
 			_logger = logger;
 			return this;
 		}
 
-		public Scenario WithState(Func<ScavengeStateBuilder, ScavengeStateBuilder> f) {
+		public Scenario<TLogFormat, TStreamId> WithState(
+			Func<ScavengeStateBuilder<TStreamId>, ScavengeStateBuilder<TStreamId>> f) {
+
 			var wrapped = _stateTransform;
 			_stateTransform = builder => builder
 				.TransformBuilder(wrapped)
@@ -95,12 +112,12 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			return this;
 		}
 
-		public Scenario AssertState(Action<ScavengeState<string>> f) {
+		public Scenario<TLogFormat, TStreamId> AssertState(Action<ScavengeState<TStreamId>> f) {
 			_assertState = f;
 			return this;
 		}
 
-		public Scenario MutateState(Action<ScavengeState<string>> f) {
+		public Scenario<TLogFormat, TStreamId> MutateState(Action<ScavengeState<TStreamId>> f) {
 			var wrapped = _stateTransform;
 			_stateTransform = builder => builder
 				.TransformBuilder(wrapped)
@@ -108,60 +125,62 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			return this;
 		}
 
-		public Scenario WithMergeChunks(bool mergeChunks = true) {
+		public Scenario<TLogFormat, TStreamId> WithMergeChunks(bool mergeChunks = true) {
 			_mergeChunks = mergeChunks;
 			return this;
 		}
 
-		public Scenario WithSyncOnly(bool syncOnly = true) {
+		public Scenario<TLogFormat, TStreamId> WithSyncOnly(bool syncOnly = true) {
 			_syncOnly = syncOnly;
 			return this;
 		}
 
-		public Scenario CancelOnNewScavengePoint(List<ScavengePoint> newScavengePoint) {
+		public Scenario<TLogFormat, TStreamId> CancelOnNewScavengePoint(
+			List<ScavengePoint> newScavengePoint) {
+
 			_newScavengePoint = newScavengePoint;
 			return this;
 		}
 
-		public Scenario CancelWhenAccumulatingMetaRecordFor(string trigger) {
+		public Scenario<TLogFormat, TStreamId> CancelWhenAccumulatingMetaRecordFor(TStreamId trigger) {
 			_accumulatingCancellationTrigger = trigger;
 			return this;
 		}
 
 		// note for this to work the trigger stream needs metadata so it will be calculated
 		// and it needs to have at least one record
-		public Scenario CancelWhenCalculatingOriginalStream(string trigger) {
+		public Scenario<TLogFormat, TStreamId> CancelWhenCalculatingOriginalStream(TStreamId trigger) {
 			_calculatingCancellationTrigger = trigger;
 			return this;
 		}
 
-		public Scenario CancelWhenExecutingChunk(string trigger) {
+		public Scenario<TLogFormat, TStreamId> CancelWhenExecutingChunk(TStreamId trigger) {
 			_executingChunkCancellationTrigger = trigger;
 			return this;
 		}
 
-		public Scenario CancelWhenExecutingIndexEntry(string trigger) {
+		public Scenario<TLogFormat, TStreamId> CancelWhenExecutingIndexEntry(TStreamId trigger) {
 			_executingIndexEntryCancellationTrigger = trigger;
 			return this;
 		}
 
-		public Scenario CancelWhenCheckpointing<TCheckpoint>() {
+		public Scenario<TLogFormat, TStreamId> CancelWhenCheckpointing<TCheckpoint>() {
 			_cancelWhenCheckpointingType = typeof(TCheckpoint);
 			return this;
 		}
 
 		// Assert methods can be used to input checks that are internal to the scavenge
 		// This is not black box testing, handle with care.
-		public delegate Scenario TraceDelegate(params string[] expected);
+		public delegate Scenario<TLogFormat, TStreamId> TraceDelegate(params string[] expected);
 
-		public Scenario AssertTrace(params (string, int)[] expected) {
+		public Scenario<TLogFormat, TStreamId> AssertTrace(params (string, int)[] expected) {
 			_expectedTrace = expected;
 			return this;
 		}
 
 		public async Task<DbResult> RunAsync(
-			Func<DbResult, LogRecord[][]> getExpectedKeptRecords = null,
-			Func<DbResult, LogRecord[][]> getExpectedKeptIndexEntries = null) {
+			Func<DbResult, ILogRecord[][]> getExpectedKeptRecords = null,
+			Func<DbResult, ILogRecord[][]> getExpectedKeptIndexEntries = null) {
 
 			return await RunInternalAsync(
 				getExpectedKeptRecords,
@@ -169,16 +188,19 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		}
 
 		private async Task<DbResult> RunInternalAsync(
-			Func<DbResult, LogRecord[][]> getExpectedKeptRecords,
-			Func<DbResult, LogRecord[][]> getExpectedKeptIndexEntries) {
+			Func<DbResult, ILogRecord[][]> getExpectedKeptRecords,
+			Func<DbResult, ILogRecord[][]> getExpectedKeptIndexEntries) {
 
 			if (string.IsNullOrEmpty(_dbPath))
 				throw new Exception("call WithDbPath");
 
-			// something is unhappy with memdb.. to do with writing the footer of the new inmem chunk
-			var memDb = false;
-			var dbConfig = TFChunkHelper.CreateDbConfig(_dbPath, 0, chunkSize: 1024 * 1024, memDb: memDb);
-			var dbResult = _getDb(dbConfig);
+			var indexPath = Path.Combine(_dbPath, "index");
+			var logFormat = LogFormatHelper<TLogFormat, TStreamId>.LogFormatFactory.Create(new() {
+				IndexDirectory = indexPath,
+			});
+
+			var dbConfig = TFChunkHelper.CreateSizedDbConfig(_dbPath, 0, chunkSize: 1024 * 1024);
+			var dbResult = _getDb(dbConfig, logFormat);
 			var keptRecords = getExpectedKeptRecords != null
 				? getExpectedKeptRecords(dbResult)
 				: null;
@@ -193,106 +215,123 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			dbResult.Db.Config.ReplicationCheckpoint.Write(dbResult.Db.Config.WriterCheckpoint.Read());
 			dbResult.Db.Config.ReplicationCheckpoint.Flush();
 
-			var indexPath = Path.Combine(_dbPath, "index");
 			var readerPool = new ObjectPool<ITransactionFileReader>(
 				objectPoolName: "ReadIndex readers pool",
 				initialCount: ESConsts.PTableInitialReaderCount,
-				maxCount: ESConsts.PTableMaxReaderCount,
+				maxCount: ESConsts.PTableInitialReaderCount,
 				factory: () => new TFChunkReader(dbResult.Db, dbResult.Db.Config.WriterCheckpoint));
 
-			IHasher lowHasher;
-			IHasher highHasher;
-			ILongHasher<string> hasher;
+			var lowHasher = logFormat.LowHasher;
+			var highHasher = logFormat.HighHasher;
 
 			var humanHashers = true;
 			if (CollideEverything) {
-				lowHasher = new ConstantHasher(0);
-				highHasher = new ConstantHasher(0);
-				hasher = new CompositeHasher<string>(new ConstantHasher(0), new ConstantHasher(0));
+				if (LogFormatHelper<TLogFormat, TStreamId>.IsV3)
+					throw new Exception("Cant cause collisions in V3");
+				lowHasher = new ConstantHasher(0) as IHasher<TStreamId>;
+				highHasher = new ConstantHasher(0) as IHasher<TStreamId>;
 			} else if (humanHashers) {
-				lowHasher = new ConstantHasher(0);
-				highHasher = new HumanReadableHasher32();
-				hasher = new CompositeHasher<string>(new ConstantHasher(0), new HumanReadableHasher32());
-			} else {
-				lowHasher = new XXHashUnsafe();
-				highHasher = new Murmur3AUnsafe();
-				hasher = new CompositeHasher<string>(new XXHashUnsafe(), new Murmur3AUnsafe());
+				if (LogFormatHelper<TLogFormat, TStreamId>.IsV3)
+					throw new Exception("Cant cause collisions in V3");
+				lowHasher = new ConstantHasher(0) as IHasher<TStreamId>;
+				highHasher = new HumanReadableHasher32() as IHasher<TStreamId>;
 			}
 
-			var tableIndex = new TableIndex(
+			var hasher = new CompositeHasher<TStreamId>(lowHasher, highHasher);
+
+			var tableIndex = new TableIndex<TStreamId>(
 				directory: indexPath,
 				lowHasher: lowHasher,
 				highHasher: highHasher,
+				emptyStreamId: logFormat.EmptyStreamId,
 				memTableFactory: () => new HashListMemTable(PTableVersions.IndexV4, maxSize: 200),
 				tfReaderFactory: () => new TFReaderLease(readerPool),
 				ptableVersion: PTableVersions.IndexV4,
 				maxAutoMergeIndexLevel: int.MaxValue,
+				pTableMaxReaderCount: ESConsts.PTableInitialReaderCount,
 				maxSizeForMemory: 1, // convert everything to ptables immediately
 				maxTablesPerLevel: 2,
-				inMem: memDb);
+				inMem: false);
+			logFormat.StreamNamesProvider.SetTableIndex(tableIndex);
 
-			IReadIndex readIndex = new ReadIndex(
+			var readIndex = new ReadIndex<TStreamId>(
 				bus: new NoopPublisher(),
 				readerPool: readerPool,
 				tableIndex: tableIndex,
+				logFormat.StreamNameIndexConfirmer,
+				logFormat.StreamIds,
+				logFormat.StreamNamesProvider,
+				logFormat.EmptyStreamId,
+				logFormat.StreamIdValidator,
+				logFormat.StreamIdSizer,
+				logFormat.StreamExistenceFilter,
+				logFormat.StreamExistenceFilterReader,
+				logFormat.EventTypeIndexConfirmer,
 				streamInfoCacheCapacity: 100,
 				additionalCommitChecks: true,
 				metastreamMaxCount: 1,
 				hashCollisionReadLimit: Opts.HashCollisionReadLimitDefault,
 				skipIndexScanOnReads: Opts.SkipIndexScanOnReadsDefault,
-				replicationCheckpoint: dbResult.Db.Config.ReplicationCheckpoint);
+				replicationCheckpoint: dbResult.Db.Config.ReplicationCheckpoint,
+				indexCheckpoint: dbResult.Db.Config.IndexCheckpoint);
 
-			readIndex.Init(dbResult.Db.Config.WriterCheckpoint.Read());
-			// wait for tables to be merged
-			tableIndex.WaitForBackgroundTasks();
+			readIndex.IndexCommitter.Init(dbResult.Db.Config.WriterCheckpoint.Read());
+			// wait for tables to be merged. for one of the tests this takes a while
+			for (int i = 0; i < 10; i++) {
+				try {
+					tableIndex.WaitForBackgroundTasks();
+					break;
+				} catch {
+				}
+			}
 
-			Scavenger<string> sut = null;
+			Scavenger<TStreamId> sut = null;
 			try {
 				var cancellationTokenSource = new CancellationTokenSource();
-				var metastreamLookup = new LogV2SystemStreams();
+				var metastreamLookup = logFormat.Metastreams;
 
-				var scavengeState = new ScavengeStateBuilder(hasher, metastreamLookup)
+				var scavengeState = new ScavengeStateBuilder<TStreamId>(hasher, metastreamLookup)
 					.TransformBuilder(_stateTransform)
 					.CancelWhenCheckpointing(_cancelWhenCheckpointingType, cancellationTokenSource)
 					.WithTracer(Tracer)
 					.Build();
 
-				IChunkReaderForAccumulator<string> chunkReader = new ChunkReaderForAccumulator<string>(
+				IChunkReaderForAccumulator<TStreamId> chunkReader = new ChunkReaderForAccumulator<TStreamId>(
 					dbResult.Db.Manager,
 					metastreamLookup,
-					new LogV2StreamIdConverter(),
+					logFormat.StreamIdConverter,
 					dbResult.Db.Config.ReplicationCheckpoint,
 					dbConfig.ChunkSize);
 
-				var indexReader = new IndexReaderForAccumulator(readIndex);
+				var indexReader = new IndexReaderForAccumulator<TStreamId>(readIndex);
 
-				var accumulatorMetastreamLookup = new AdHocMetastreamLookupInterceptor<string>(
+				var accumulatorMetastreamLookup = new AdHocMetastreamLookupInterceptor<TStreamId>(
 					metastreamLookup,
 					(continuation, streamId) => {
-						if (streamId == _accumulatingCancellationTrigger)
+						if (StreamIdComparer.Equals(streamId, _accumulatingCancellationTrigger))
 							cancellationTokenSource.Cancel();
 						return continuation(streamId);
 					});
 
-				var calculatorIndexReader = new AdHocIndexReaderInterceptor<string>(
-					new IndexReaderForCalculator(
+				var calculatorIndexReader = new AdHocIndexReaderInterceptor<TStreamId>(
+					new IndexReaderForCalculator<TStreamId>(
 						readIndex,
 						() => new TFReaderLease(readerPool),
 						scavengeState.LookupUniqueHashUser),
 					(f, handle, from, maxCount, x) => {
 						if (_calculatingCancellationTrigger != null)
 							if ((handle.Kind == StreamHandle.Kind.Hash && handle.StreamHash == hasher.Hash(_calculatingCancellationTrigger)) ||
-								(handle.Kind == StreamHandle.Kind.Id && handle.StreamId == _calculatingCancellationTrigger)) {
+								(handle.Kind == StreamHandle.Kind.Id && StreamIdComparer.Equals(handle.StreamId, _calculatingCancellationTrigger))) {
 
 								cancellationTokenSource.Cancel();
 							}
 						return f(handle, from, maxCount, x);
 					});
 
-				var chunkExecutorMetastreamLookup = new AdHocMetastreamLookupInterceptor<string>(
+				var chunkExecutorMetastreamLookup = new AdHocMetastreamLookupInterceptor<TStreamId>(
 					metastreamLookup,
 					(continuation, streamId) => {
-						if (streamId == _executingChunkCancellationTrigger)
+						if (StreamIdComparer.Equals(streamId, _executingChunkCancellationTrigger))
 							cancellationTokenSource.Cancel();
 						return continuation(streamId);
 					});
@@ -314,14 +353,14 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				var restPeriod = 5;
 
 				// add tracing
-				chunkReader = new TracingChunkReaderForAccumulator<string>(chunkReader, Tracer.Trace);
+				chunkReader = new TracingChunkReaderForAccumulator<TStreamId>(chunkReader, Tracer.Trace);
 
 				var throttle = new Throttle(
 					TimeSpan.FromMilliseconds(1000),
 					TimeSpan.FromMilliseconds(1000),
 					activePercent: 100);
 
-				IAccumulator<string> accumulator = new Accumulator<string>(
+				IAccumulator<TStreamId> accumulator = new Accumulator<TStreamId>(
 					chunkSize: dbConfig.ChunkSize,
 					metastreamLookup: accumulatorMetastreamLookup,
 					chunkReader: chunkReader,
@@ -329,17 +368,17 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 					cancellationCheckPeriod: cancellationCheckPeriod,
 					throttle: throttle);
 
-				ICalculator<string> calculator = new Calculator<string>(
+				ICalculator<TStreamId> calculator = new Calculator<TStreamId>(
 					index: calculatorIndexReader,
 					chunkSize: dbConfig.ChunkSize,
 					cancellationCheckPeriod: cancellationCheckPeriod,
 					checkpointPeriod: checkpointPeriod,
 					throttle: throttle);
 
-				IChunkExecutor<string> chunkExecutor = new ChunkExecutor<string, LogRecord>(
+				IChunkExecutor<TStreamId> chunkExecutor = new ChunkExecutor<TStreamId, ILogRecord>(
 					metastreamLookup: chunkExecutorMetastreamLookup,
-					chunkManager: new TracingChunkManagerForChunkExecutor<string, LogRecord>(
-						new ChunkManagerForExecutor(
+					chunkManager: new TracingChunkManagerForChunkExecutor<TStreamId, ILogRecord>(
+						new ChunkManagerForExecutor<TStreamId>(
 							dbResult.Db.Manager,
 							dbConfig),
 						Tracer),
@@ -354,27 +393,27 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 					new OldScavengeChunkMergerBackend(dbResult.Db),
 					throttle: throttle);
 
-				IIndexExecutor<string> indexExecutor = new IndexExecutor<string>(
+				IIndexExecutor<TStreamId> indexExecutor = new IndexExecutor<TStreamId>(
 					indexScavenger: cancellationWrappedIndexScavenger,
-					streamLookup: new ChunkReaderForIndexExecutor(() => new TFReaderLease(readerPool)),
+					streamLookup: new ChunkReaderForIndexExecutor<TStreamId>(() => new TFReaderLease(readerPool)),
 					unsafeIgnoreHardDeletes: _unsafeIgnoreHardDeletes,
 					restPeriod: restPeriod,
 					throttle: throttle);
 
 				ICleaner cleaner = new Cleaner(unsafeIgnoreHardDeletes: _unsafeIgnoreHardDeletes);
 
-				accumulator = new TracingAccumulator<string>(accumulator, Tracer);
-				calculator = new TracingCalculator<string>(calculator, Tracer);
-				chunkExecutor = new TracingChunkExecutor<string>(chunkExecutor, Tracer);
+				accumulator = new TracingAccumulator<TStreamId>(accumulator, Tracer);
+				calculator = new TracingCalculator<TStreamId>(calculator, Tracer);
+				chunkExecutor = new TracingChunkExecutor<TStreamId>(chunkExecutor, Tracer);
 				chunkMerger = new TracingChunkMerger(chunkMerger, Tracer);
-				indexExecutor = new TracingIndexExecutor<string>(indexExecutor, Tracer);
+				indexExecutor = new TracingIndexExecutor<TStreamId>(indexExecutor, Tracer);
 				cleaner = new TracingCleaner(cleaner, Tracer);
 
 				// if test provided its own logger it can check its own status
 				var expectSuccess = _logger == null;
 				var successLogger = expectSuccess ? new FakeTFScavengerLog() : null;
 
-				sut = new Scavenger<string>(
+				sut = new Scavenger<TStreamId>(
 					checkPreconditions: () => { },
 					scavengeState,
 					accumulator,
@@ -436,13 +475,13 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 				// See a list of the stream collisions
 				//   - naively calculate list of collisions
-				var hashesInUse = new Dictionary<ulong, string>();
-				var collidingStreams = new HashSet<string>();
+				var hashesInUse = new Dictionary<ulong, TStreamId>();
+				var collidingStreams = new HashSet<TStreamId>();
 
-				void RegisterUse(string streamId) {
+				void RegisterUse(TStreamId streamId) {
 					var hash = hasher.Hash(streamId);
 					if (hashesInUse.TryGetValue(hash, out var user)) {
-						if (user == streamId) {
+						if (StreamIdComparer.Equals(user, streamId)) {
 							// in use by us. not a collision.
 						} else {
 							// collision. register both as collisions.
@@ -457,7 +496,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 				foreach (var chunk in dbResult.Recs) {
 					foreach (var record in chunk) {
-						if (!(record is PrepareLogRecord prepare))
+						if (record is not IPrepareLogRecord<TStreamId> prepare)
 							continue;
 
 						RegisterUse(prepare.EventStreamId);
@@ -499,7 +538,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		}
 
 		// nicked from scavengetestscenario
-		protected static void CheckRecords(LogRecord[][] expected, DbResult actual) {
+		protected static void CheckRecords(ILogRecord[][] expected, DbResult actual) {
 			Assert.True(
 				expected.Length == actual.Db.Manager.ChunksCount,
 				"Wrong number of chunks. " +
@@ -508,7 +547,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			for (int i = 0; i < expected.Length; ++i) {
 				var chunk = actual.Db.Manager.GetChunk(i);
 
-				var chunkRecords = new List<LogRecord>();
+				var chunkRecords = new List<ILogRecord>();
 				var result = chunk.TryReadFirst();
 				while (result.Success) {
 					chunkRecords.Add(result.LogRecord);
@@ -533,10 +572,10 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		// we want to check that the index contains everything it is supposed to
 		// and we want to check that the index doesn't contain anything extra.
 		private static void CheckIndex(
-			LogRecord[][] expected,
-			IReadIndex actual,
-			HashSet<string> collisions,
-			ILongHasher<string> hasher) {
+			ILogRecord[][] expected,
+			IReadIndex<TStreamId> actual,
+			HashSet<TStreamId> collisions,
+			ILongHasher<TStreamId> hasher) {
 
 			if (expected == null) {
 				// test didn't ask us to check the index
@@ -545,12 +584,12 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 			// check we have everything we are supposed to
 			// cant use normal stream reads because they will apply metadata etc.
-			var minEventNumbers = new Dictionary<string, long>();
-			var maxEventNumbers = new Dictionary<string, long>();
+			var minEventNumbers = new Dictionary<TStreamId, long>();
+			var maxEventNumbers = new Dictionary<TStreamId, long>();
 
 			foreach (var chunk in expected) {
 				foreach (var record in chunk) {
-					if (!(record is PrepareLogRecord prepare))
+					if (record is not IPrepareLogRecord<TStreamId> prepare)
 						throw new Exception("expected to find commit record in index but this is impossible");
 
 					var streamId = prepare.EventStreamId;
@@ -584,7 +623,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 
 					if (result.EventInfos.Length != 1) {
 						// remember this applies metadata, so is of limited use
-						var wholeStream = actual.ReadStreamEventsForward(streamId, fromEventNumber: 0, maxCount: 100);
+						var wholeStream = actual.ReadStreamEventsForward($"{streamId}", streamId, fromEventNumber: 0, maxCount: 100);
 						Assert.True(result.EventInfos.Length == 1, $"Couldn't find {streamId}:{eventNumber} in index.");
 					}
 

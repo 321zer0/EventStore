@@ -10,35 +10,36 @@ using EventStore.Core.TransactionLog.Scavenging.Sqlite;
 using Microsoft.Data.Sqlite;
 
 namespace EventStore.Core.XUnit.Tests.Scavenge {
-	public class ScavengeStateBuilder {
-		private readonly ILongHasher<string> _hasher;
-		private readonly IMetastreamLookup<string> _metastreamLookup;
+	public class ScavengeStateBuilder<TStreamId> {
+		private readonly ILongHasher<TStreamId> _hasher;
+		private readonly IMetastreamLookup<TStreamId> _metastreamLookup;
 
 		private Tracer _tracer;
 		private ObjectPool<SqliteConnection> _connectionPool;
 		private Type _cancelWhenCheckpointingType;
 		private CancellationTokenSource _cancellationTokenSource;
-		private Action<ScavengeState<string>> _mutateState;
+		private Action<ScavengeState<TStreamId>> _mutateState;
 
 		public ScavengeStateBuilder(
-			ILongHasher<string> hasher,
-			IMetastreamLookup<string> metastreamLookup) {
+			ILongHasher<TStreamId> hasher,
+			IMetastreamLookup<TStreamId> metastreamLookup) {
 
 			_hasher = hasher;
 			_metastreamLookup = metastreamLookup;
 			_mutateState = x => { };
 		}
 
-		public ScavengeStateBuilder TransformBuilder(Func<ScavengeStateBuilder, ScavengeStateBuilder> f) =>
+		public ScavengeStateBuilder<TStreamId> TransformBuilder(
+			Func<ScavengeStateBuilder<TStreamId>, ScavengeStateBuilder<TStreamId>> f) =>
 			f(this);
 
-		public ScavengeStateBuilder CancelWhenCheckpointing(Type type, CancellationTokenSource cts) {
+		public ScavengeStateBuilder<TStreamId> CancelWhenCheckpointing(Type type, CancellationTokenSource cts) {
 			_cancelWhenCheckpointingType = type;
 			_cancellationTokenSource = cts;
 			return this;
 		}
 
-		public ScavengeStateBuilder MutateState(Action<ScavengeState<string>> f) {
+		public ScavengeStateBuilder<TStreamId> MutateState(Action<ScavengeState<TStreamId>> f) {
 			var wrapped = _mutateState;
 			_mutateState = state => {
 				wrapped(state);
@@ -47,37 +48,37 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 			return this;
 		}
 
-		public ScavengeStateBuilder WithTracer(Tracer tracer) {
+		public ScavengeStateBuilder<TStreamId> WithTracer(Tracer tracer) {
 			_tracer = tracer;
 			return this;
 		}
 
-		public ScavengeStateBuilder WithConnectionPool(ObjectPool<SqliteConnection> connectionPool) {
+		public ScavengeStateBuilder<TStreamId> WithConnectionPool(ObjectPool<SqliteConnection> connectionPool) {
 			_connectionPool = connectionPool;
 			return this;
 		}
 
-		public ScavengeState<string> Build() {
+		public ScavengeState<TStreamId> Build() {
 			var state = BuildInternal();
 			_mutateState(state);
 			return state;
 		}
 
-		private ScavengeState<string> BuildInternal() {
+		private ScavengeState<TStreamId> BuildInternal() {
 			if (_connectionPool == null)
 				throw new Exception("call WithConnectionPool(...)");
 
-			var map = new ConcurrentDictionary<IScavengeStateBackend<string>, SqliteConnection>();
-			var backendPool = new ObjectPool<IScavengeStateBackend<string>>(
+			var map = new ConcurrentDictionary<IScavengeStateBackend<TStreamId>, SqliteConnection>();
+			var backendPool = new ObjectPool<IScavengeStateBackend<TStreamId>>(
 				objectPoolName: "scavenge backend pool",
 				initialCount: 1,
 				maxCount: TFChunkScavenger.MaxThreadCount + 1,
 				factory: () => {
 					var connection = _connectionPool.Get();
-					var sqlite = new SqliteScavengeBackend<string>();
+					var sqlite = new SqliteScavengeBackend<TStreamId>();
 					sqlite.Initialize(connection);
 
-					var backend = new AdHocScavengeBackendInterceptor<string>(sqlite);
+					var backend = new AdHocScavengeBackendInterceptor<TStreamId>(sqlite);
 
 					var transactionFactory = sqlite.TransactionFactory;
 
@@ -102,14 +103,14 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 						backend.OriginalStorage =
 							new TracingOriginalStreamScavengeMap<ulong>(backend.OriginalStorage, _tracer);
 						backend.OriginalCollisionStorage =
-							new TracingOriginalStreamScavengeMap<string>(backend.OriginalCollisionStorage, _tracer);
+							new TracingOriginalStreamScavengeMap<TStreamId>(backend.OriginalCollisionStorage, _tracer);
 					}
 					map[backend] = connection;
 					return backend;
 				},
 				dispose: backend => _connectionPool.Return(map[backend]));
 
-			var scavengeState = new ScavengeState<string>(
+			var scavengeState = new ScavengeState<TStreamId>(
 				_hasher,
 				_metastreamLookup,
 				backendPool);

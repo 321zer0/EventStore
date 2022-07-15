@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Threading.Tasks;
 using EventStore.Core.Data;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.LogRecords;
 using EventStore.Core.XUnit.Tests.Scavenge.Sqlite;
+using EventStore.LogCommon;
 using Xunit;
 using static EventStore.Core.XUnit.Tests.Scavenge.StreamMetadatas;
 
@@ -14,7 +16,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		public async Task when_scavenging_tfchunk_with_version0_log_records_and_incomplete_chunk() {
 			const byte version = LogRecordVersion.LogRecordV0;
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -48,7 +50,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_deleted_stream_with_a_lot_of_data_is_scavenged() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -74,7 +76,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_deleted_stream_with_a_lot_of_data_is_scavenged_with_ingore_harddelete() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithUnsafeIgnoreHardDeletes(true)
 				.WithDb(x => x
@@ -101,7 +103,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_deleted_stream_with_explicit_transaction_is_scavenged() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithUnsafeIgnoreHardDeletes(true)
 				.WithDb(x => x
@@ -128,7 +130,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_deleted_stream_with_metadata_is_scavenged() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -147,7 +149,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_nothing_to_scavenge() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -169,7 +171,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_both_max_age_and_max_count_with_stricter_max_age_specified() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -205,7 +207,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_both_max_age_and_max_count_with_stricter_max_count_specified() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -233,7 +235,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_max_age_specified() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -268,7 +270,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_max_count_specified() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -296,7 +298,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_truncatebefore_specified() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -323,7 +325,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_having_stream_with_strict_max_age_leaving_no_events_in_stream() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -352,7 +354,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_metastream_is_scavenged_and_read_index_is_set_to_keep_just_last_metaevent() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -372,7 +374,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_stream_is_deleted() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -393,7 +395,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		[Fact]
 		public async Task when_stream_is_deleted_with_ignore_hard_deletes() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithUnsafeIgnoreHardDeletes(true)
 				.WithDb(x => x
@@ -417,7 +419,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 		// new scavenge has less transaction handling and treats both transactions the same.
 		[Fact]
 		public async Task when_stream_is_deleted_and_bulk_transaction_spans_chunks_boundary() {
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -452,7 +454,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge.PortedFromOldScavenge {
 
 		[Fact]
 		public async Task when_stream_is_deleted_and_explicit_transaction_spans_chunks_boundary() {
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(

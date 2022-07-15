@@ -21,6 +21,8 @@ using ILogger = Serilog.ILogger;
 namespace EventStore.Core.TransactionLog.Chunks {
 	public abstract class TFChunkScavenger {
 		public const int MaxThreadCount = 4;
+		public const int MaxRetryCount = 5;
+		public const int FlushPageInterval = 32; // max 65536 pages to write resulting in 2048 flushes per chunk
 		protected static readonly ILogger Log = Serilog.Log.ForContext<TFChunkScavenger>();
 	}
 
@@ -33,9 +35,6 @@ namespace EventStore.Core.TransactionLog.Chunks {
 		private readonly long _maxChunkDataSize;
 		private readonly bool _unsafeIgnoreHardDeletes;
 		private readonly int _threads;
-
-		public const int MaxRetryCount = 5;
-		public const int FlushPageInterval = 32; // max 65536 pages to write resulting in 2048 flushes per chunk
 
 		public TFChunkScavenger(TFChunkDb db, ITFChunkScavengerLog scavengerLog, ITableIndex<TStreamId> tableIndex,
 			IReadIndex<TStreamId> readIndex, IMetastreamLookup<TStreamId> metastreams, long? maxChunkDataSize = null,
@@ -419,7 +418,7 @@ namespace EventStore.Core.TransactionLog.Chunks {
 					unbuffered: db.Config.Unbuffered,
 					writethrough: db.Config.WriteThrough,
 					initialReaderCount: db.Config.InitialReaderCount,
-					maxReaderCount: _db.Config.MaxReaderCount,
+					maxReaderCount: db.Config.MaxReaderCount,
 					reduceFileCachePressure: db.Config.ReduceFileCachePressure);
 			} catch (IOException exc) {
 				Log.Error(exc,

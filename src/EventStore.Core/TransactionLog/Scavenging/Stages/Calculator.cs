@@ -34,7 +34,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			IScavengeStateForCalculator<TStreamId> state,
 			CancellationToken cancellationToken) {
 
-			Log.Trace("SCAVENGING: Starting new scavenge calculation phase for {scavengePoint}",
+			Log.Debug("SCAVENGING: Starting new scavenge calculation phase for {scavengePoint}",
 				scavengePoint.GetName());
 
 			var checkpoint = new ScavengeCheckpoint.Calculating<TStreamId>(
@@ -49,7 +49,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			IScavengeStateForCalculator<TStreamId> state,
 			CancellationToken cancellationToken) {
 
-			Log.Trace("SCAVENGING: Calculating from checkpoint: {checkpoint}", checkpoint);
+			Log.Debug("SCAVENGING: Calculating from checkpoint: {checkpoint}", checkpoint);
 			var stopwatch = Stopwatch.StartNew();
 
 			var weights = new WeightAccumulator(state);
@@ -158,7 +158,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 
 		private void LogRate(string name, int count, TimeSpan elapsed) {
 			var rate = count / elapsed.TotalSeconds;
-			Log.Trace(
+			Log.Debug(
 				"SCAVENGING: Calculated in " + name + ": {count:N0} streams in {elapsed}. {rate:N2} streams per second",
 				count, elapsed, rate);
 		}

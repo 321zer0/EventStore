@@ -4,7 +4,7 @@ using EventStore.Core.TransactionLog.Chunks.TFChunk;
 using EventStore.Core.TransactionLog.LogRecords;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
-	public class ChunkManagerForExecutor : IChunkManagerForChunkExecutor<string, LogRecord> {
+	public class ChunkManagerForExecutor<TStreamId> : IChunkManagerForChunkExecutor<TStreamId, ILogRecord> {
 		private readonly TFChunkManager _manager;
 		private readonly TFChunkDbConfig _dbConfig;
 
@@ -13,15 +13,15 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			_dbConfig = dbConfig;
 		}
 
-		public IChunkWriterForExecutor<string, LogRecord> CreateChunkWriter(
-			IChunkReaderForExecutor<string, LogRecord> sourceChunk) {
+		public IChunkWriterForExecutor<TStreamId, ILogRecord> CreateChunkWriter(
+			IChunkReaderForExecutor<TStreamId, ILogRecord> sourceChunk) {
 
-			return new ChunkWriterForExecutor(this, _dbConfig, sourceChunk);
+			return new ChunkWriterForExecutor<TStreamId>(this, _dbConfig, sourceChunk);
 		}
 
-		public IChunkReaderForExecutor<string, LogRecord> GetChunkReaderFor(long position) {
+		public IChunkReaderForExecutor<TStreamId, ILogRecord> GetChunkReaderFor(long position) {
 			var tfChunk = _manager.GetChunkFor(position);
-			return new ChunkReaderForExecutor(tfChunk);
+			return new ChunkReaderForExecutor<TStreamId>(tfChunk);
 		}
 
 		public void SwitchChunk(

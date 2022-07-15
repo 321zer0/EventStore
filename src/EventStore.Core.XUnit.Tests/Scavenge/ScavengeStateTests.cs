@@ -16,7 +16,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public void pending_changes_are_still_read() {
 			var hasher = new HumanReadableHasher();
 			var metastreamLookup = new LogV2SystemStreams();
-			var sut = new ScavengeStateBuilder(hasher, metastreamLookup)
+			var sut = new ScavengeStateBuilder<string>(hasher, metastreamLookup)
 				.WithConnectionPool(Fixture.DbConnectionPool)
 				.Build();
 
@@ -39,7 +39,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public void transaction_rollback_undoes_pending_changes() {
 			var hasher = new HumanReadableHasher();
 			var metastreamLookup = new LogV2SystemStreams();
-			var sut = new ScavengeStateBuilder(hasher, metastreamLookup)
+			var sut = new ScavengeStateBuilder<string>(hasher, metastreamLookup)
 				.WithConnectionPool(Fixture.DbConnectionPool)
 				.Build();
 
@@ -75,7 +75,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				new Murmur3AUnsafe());
 
 			var metastreamLookup = new LogV2SystemStreams();
-			var sut = new ScavengeStateBuilder(hasher, metastreamLookup)
+			var sut = new ScavengeStateBuilder<string>(hasher, metastreamLookup)
 				.WithConnectionPool(Fixture.DbConnectionPool)
 				.Build();
 
@@ -124,7 +124,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				new Murmur3AUnsafe());
 
 			var metastreamLookup = new LogV2SystemStreams();
-			var sut = new ScavengeStateBuilder(hasher, metastreamLookup)
+			var sut = new ScavengeStateBuilder<string>(hasher, metastreamLookup)
 				.WithConnectionPool(Fixture.DbConnectionPool)
 				.Build();
 

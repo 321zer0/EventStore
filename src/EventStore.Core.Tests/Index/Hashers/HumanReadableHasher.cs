@@ -18,7 +18,7 @@ namespace EventStore.Core.Tests.Index.Hashers {
 		public ulong Hash(string x) => _hash32.Hash(x);
 	}
 
-	public class HumanReadableHasher32 : IHasher, IHasher<string> {
+	public class HumanReadableHasher32 : IHasher<string> {
 		public uint Hash(string x) {
 			if (x == "")
 				return 0;
@@ -28,14 +28,6 @@ namespace EventStore.Core.Tests.Index.Hashers {
 				: x[1];
 
 			return c;
-		}
-
-		public uint Hash(byte[] data) {
-			throw new System.NotImplementedException();
-		}
-
-		public uint Hash(byte[] data, int offset, uint len, uint seed) {
-			throw new System.NotImplementedException();
 		}
 	}
 }

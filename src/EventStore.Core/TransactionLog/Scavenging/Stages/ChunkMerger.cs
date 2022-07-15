@@ -26,7 +26,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			ITFChunkScavengerLog scavengerLogger,
 			CancellationToken cancellationToken) {
 
-			Log.Trace("SCAVENGING: Starting new scavenge chunk merging phase for {scavengePoint}",
+			Log.Debug("SCAVENGING: Starting new scavenge chunk merging phase for {scavengePoint}",
 				scavengePoint.GetName());
 
 			var checkpoint = new ScavengeCheckpoint.MergingChunks(scavengePoint);
@@ -41,10 +41,10 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			CancellationToken cancellationToken) {
 
 			if (_mergeChunks) {
-				Log.Trace("SCAVENGING: Merging chunks from checkpoint: {checkpoint}", checkpoint);
+				Log.Debug("SCAVENGING: Merging chunks from checkpoint: {checkpoint}", checkpoint);
 				_backend.MergeChunks(scavengerLogger, _throttle, cancellationToken);
 			} else {
-				Log.Trace("SCAVENGING: Merging chunks is disabled");
+				Log.Debug("SCAVENGING: Merging chunks is disabled");
 			}
 		}
 	}

@@ -1,12 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using EventStore.Common.Utils;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
 	public static class ParallelLoop {
+		private static readonly Task<int> _neverComplete;
+
+		static ParallelLoop() {
+			var tcs = new TaskCompletionSource<int>();
+			_neverComplete = tcs.Task;
+		}
+
 		// passes each item in `source` to `process`, according to the `degreeOfParallelism.
 		// processing is never done on the calling thread
 		// emitCheckpoint is called on the calling thread with the latest checkpoint that is complete
@@ -34,7 +40,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 			var tasksInProgress = new Task[degreeOfParallelism];
 
 			for (var i = 0; i < degreeOfParallelism; i++) {
-				tasksInProgress[i] = DelayForever();
+				tasksInProgress[i] = _neverComplete;
 				checkpoints[i] = int.MaxValue;
 			}
 
@@ -99,14 +105,9 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				var slot = WaitForSlot();
 				checkpoints[slot] = int.MaxValue;
 				EmitCheckpoint();
-				tasksInProgress[slot] = DelayForever();
+				tasksInProgress[slot] = _neverComplete;
 				slotsInUse--;
 			}
-		}
-
-		private static async Task<int> DelayForever() {
-			await Task.Delay(Timeout.InfiniteTimeSpan);
-			throw new Exception("never getting here");
 		}
 	}
 }

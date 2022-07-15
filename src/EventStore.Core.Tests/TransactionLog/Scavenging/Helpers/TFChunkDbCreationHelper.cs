@@ -12,6 +12,8 @@ using EventStore.LogCommon;
 
 namespace EventStore.Core.Tests.TransactionLog.Scavenging.Helpers {
 	public class TFChunkDbCreationHelper<TLogFormat, TStreamId> {
+		private static EqualityComparer<TStreamId> StreamIdComparer { get; } = EqualityComparer<TStreamId>.Default;
+
 		private readonly TFChunkDbConfig _dbConfig;
 		private readonly TFChunkDb _db;
 
@@ -19,12 +21,14 @@ namespace EventStore.Core.Tests.TransactionLog.Scavenging.Helpers {
 
 		private bool _completeLast;
 
-		private static LogFormatAbstractor<TStreamId> _logFormat;
+		private readonly LogFormatAbstractor<TStreamId> _logFormat;
+		private readonly TStreamId _scavengePointEventTypeId;
 
 		public TFChunkDbCreationHelper(TFChunkDbConfig dbConfig, LogFormatAbstractor<TStreamId> logFormat) {
 			Ensure.NotNull(dbConfig, "dbConfig");
 			_dbConfig = dbConfig;
 			_logFormat = logFormat;
+			_scavengePointEventTypeId = logFormat.EventTypeIndex.GetExisting(SystemEventTypes.ScavengePoint);
 
 			_db = new TFChunkDb(_dbConfig);
 			_db.Open();
@@ -145,9 +149,13 @@ namespace EventStore.Core.Tests.TransactionLog.Scavenging.Helpers {
 
 					ILogRecord record;
 
-					var expectedVersion =
+					var logFormatDefaultExpectedVersion = LogFormatHelper<TLogFormat, TStreamId>.IsV2
+						? ExpectedVersion.Any // V2 transaction writes have expected version: -2, event number: -1
+						: ExpectedVersion.NoStream; // V3 doesn't have transactions so cant have a negative event number
+
+					  var expectedVersion =
 						(rec.EventNumber - 1) ??
-						(transInfo.FirstPrepareId == rec.Id ? streamVersion : ExpectedVersion.NoStream);
+						(transInfo.FirstPrepareId == rec.Id ? streamVersion : logFormatDefaultExpectedVersion);
 
 					switch (rec.Type) {
 						case Rec.RecType.Prepare: {
@@ -211,11 +219,11 @@ namespace EventStore.Core.Tests.TransactionLog.Scavenging.Helpers {
 
 					Write(i, chunk, record, out logPos);
 					records[i].Add(record);
-					if (record is PrepareLogRecord prepare && prepare.EventType == SystemEventTypes.ScavengePoint) {
+					if (record is IPrepareLogRecord<TStreamId> prepare &&
+						StreamIdComparer.Equals(prepare.EventType, _scavengePointEventTypeId)) {
 						chunk.Complete();
 						completedChunk = true;
 					}
-
 				}
 
 				if (!completedChunk) {

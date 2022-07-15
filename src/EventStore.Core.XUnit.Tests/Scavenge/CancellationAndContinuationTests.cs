@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using EventStore.Core.Tests;
 using EventStore.Core.Tests.TransactionLog.Scavenging.Helpers;
 using EventStore.Core.TransactionLog.Chunks;
 using EventStore.Core.TransactionLog.Scavenging;
@@ -20,7 +21,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task accumulator_checkpoints_immediately() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -51,7 +52,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task calculator_checkpoints_immediately() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -96,7 +97,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task chunk_executor_checkpoints_immediately() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -152,7 +153,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task index_executor_checkpoints_immediately() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
@@ -218,7 +219,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task cleaner_checkpoints_immediately() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(Rec.Write(t++, "ab-1"))
@@ -288,7 +289,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task can_cancel_during_accumulation_and_resume() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -326,7 +327,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				.RunAsync();
 
 			// now complete the scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -421,7 +422,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_cancel_during_calculation_and_resume() {
 			var t = 0;
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var logger = new FakeTFScavengerLog();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
@@ -475,7 +476,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				.RunAsync();
 
 			// now complete the scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -548,7 +549,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task can_cancel_during_chunk_execution_and_resume() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -615,7 +616,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				.RunAsync();
 
 			// now complete the scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -673,7 +674,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		public async Task can_cancel_during_index_execution_and_resume() {
 			var t = 0;
 			var logger = new FakeTFScavengerLog();
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
@@ -753,7 +754,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				.RunAsync();
 
 			// now complete the scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -795,7 +796,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_cancel_during_cleaning_and_resume() {
 			var t = 0;
-			var scenario = new Scenario();
+			var scenario = new Scenario<LogFormat.V2, string>();
 			var logger = new FakeTFScavengerLog();
 			var db = await scenario
 				.WithDbPath(Fixture.Directory)
@@ -816,7 +817,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 				.RunAsync();
 
 			// now complete the scavenge
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithTracerFrom(scenario)
 				.WithDbPath(Fixture.Directory)
 				.WithDb(db)
@@ -845,7 +846,7 @@ namespace EventStore.Core.XUnit.Tests.Scavenge {
 		[Fact]
 		public async Task can_complete() {
 			var t = 0;
-			await new Scenario()
+			await new Scenario<LogFormat.V2, string>()
 				.WithDbPath(Fixture.Directory)
 				.WithDb(x => x
 					.Chunk(
