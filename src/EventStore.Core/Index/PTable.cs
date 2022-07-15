@@ -534,12 +534,12 @@ namespace EventStore.Core.Index {
 			out IndexEntry entry) {
 
 			Ensure.Nonnegative(beforePosition, nameof(beforePosition));
-			stream = GetHash(stream);
+			var streamHash = GetHash(stream);
 
 			entry = TableIndex.InvalidIndexEntry;
 
-			var startKey = BuildKey(stream, 0);
-			var endKey = BuildKey(stream, long.MaxValue);
+			var startKey = BuildKey(streamHash, 0);
+			var endKey = BuildKey(streamHash, long.MaxValue);
 
 			if (startKey.GreaterThan(_maxEntry) || endKey.SmallerThan(_minEntry))
 				return false;
@@ -550,7 +550,7 @@ namespace EventStore.Core.Index {
 
 				try {
 					if (!TryGetLatestEntryFast(
-							stream,
+							streamHash,
 							beforePosition,
 							isForThisStream,
 							recordRange,
@@ -562,7 +562,7 @@ namespace EventStore.Core.Index {
 				} catch (HashCollisionException) {
 					// fall back to linear search if there's a hash collision
 					if (!TryGetLatestEntrySlow(
-							stream,
+							streamHash,
 							beforePosition,
 							isForThisStream,
 							recordRange,
@@ -582,7 +582,7 @@ namespace EventStore.Core.Index {
 		// linearly search the whole range for the entry with the greatest position that
 		// is for this stream and before the beforePosition.
 		private bool TryGetLatestEntrySlow(
-			ulong stream,
+			StreamHash stream,
 			long beforePosition,
 			Func<IndexEntry, bool> isForThisStream,
 			Range recordRange,
@@ -610,7 +610,7 @@ namespace EventStore.Core.Index {
 						+ $"high bounds check key (stream: {highBoundsCheck.Stream}, version: {highBoundsCheck.Version})");
 				}
 
-				if (candidateEntry.Stream == stream &&
+				if (candidateEntry.Stream == stream.Hash &&
 					candidateEntry.Position < beforePosition &&
 					candidateEntry.Position > maxBeforePosition &&
 					isForThisStream(candidateEntry)) {
@@ -630,7 +630,7 @@ namespace EventStore.Core.Index {
 		}
 
 		private bool TryGetLatestEntryFast(
-			ulong stream,
+			StreamHash stream,
 			long beforePosition,
 			Func<IndexEntry,bool> isForThisStream,
 			Range recordRange,
@@ -662,7 +662,7 @@ namespace EventStore.Core.Index {
 					+ $"high bounds check key (stream: {highBoundsCheck.Stream}, version: {highBoundsCheck.Version})");
 				}
 
-				if (midpointKey.Stream != stream) {
+				if (midpointKey.Stream != stream.Hash) {
 					if (midpointKey.GreaterThan(endKey)) {
 						low = mid + 1;
 						lowBoundsCheck = midpointKey;
@@ -692,7 +692,7 @@ namespace EventStore.Core.Index {
 			var candidateEntry = ReadEntry(_indexEntrySize, high, workItem, _version);
 
 			// index entry is for a different hash
-			if (candidateEntry.Stream != stream) {
+			if (candidateEntry.Stream != stream.Hash) {
 				entry = TableIndex.InvalidIndexEntry;
 				return false;
 			}
@@ -786,21 +786,21 @@ namespace EventStore.Core.Index {
 		}
 
 		public bool TryGetNextEntry(ulong stream, long afterVersion, out IndexEntry entry) {
-			ulong hash = GetHash(stream);
-			if (afterVersion >= long.MaxValue) {
+			var hash = GetHash(stream);
+			if (afterVersion >= long.MaxValue || !MightContainStream(hash)) {
 				entry = TableIndex.InvalidIndexEntry;
 				return false;
 			}
-			return TryGetSmallestEntry(hash, afterVersion + 1, long.MaxValue, out entry);
+			return TrySearchForOldestEntry(hash, afterVersion + 1, long.MaxValue, out entry, out _);
 		}
 
 		public bool TryGetPreviousEntry(ulong stream, long beforeVersion, out IndexEntry entry) {
-			ulong hash = GetHash(stream);
-			if (beforeVersion <= 0) {
+			var hash = GetHash(stream);
+			if (beforeVersion <= 0 || !MightContainStream(hash)) {
 				entry = TableIndex.InvalidIndexEntry;
 				return false;
 			}
-			return TryGetLargestEntry(hash, 0, beforeVersion - 1, out entry);
+			return TrySearchForLatestEntry(hash, 0, beforeVersion - 1, out entry, out _);
 		}
 
 		private bool TrySearchForOldestEntry(StreamHash stream, long startNumber, long endNumber,

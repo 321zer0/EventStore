@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace EventStore.Core.Tests.Services.Storage.HashCollisions {
 	[TestFixture]
-	public abstract class ReadEventInfoBackward_NoCollisions : ReadIndexTestScenario {
+	public abstract class ReadEventInfoBackward_NoCollisions : ReadIndexTestScenario<LogFormat.V2, string> {
 		private const string Stream = "ab-1";
 		private const ulong Hash = 98;
 		private const string NonCollidingStream = "cd-1";

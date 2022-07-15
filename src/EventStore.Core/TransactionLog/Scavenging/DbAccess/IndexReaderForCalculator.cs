@@ -3,15 +3,15 @@ using EventStore.Core.Services.Storage.ReaderIndex;
 using EventStore.Core.TransactionLog.LogRecords;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
-	public class IndexReaderForCalculator : IIndexReaderForCalculator<string> {
-		private readonly IReadIndex _readIndex;
+	public class IndexReaderForCalculator<TStreamId> : IIndexReaderForCalculator<TStreamId> {
+		private readonly IReadIndex<TStreamId> _readIndex;
 		private readonly Func<TFReaderLease> _tfReaderFactory;
-		private readonly Func<ulong, string> _lookupUniqueHashUser;
+		private readonly Func<ulong, TStreamId> _lookupUniqueHashUser;
 
 		public IndexReaderForCalculator(
-			IReadIndex readIndex,
+			IReadIndex<TStreamId> readIndex,
 			Func<TFReaderLease> tfReaderFactory,
-			Func<ulong, string> lookupUniqueHashUser) {
+			Func<ulong, TStreamId> lookupUniqueHashUser) {
 
 			_readIndex = readIndex;
 			_tfReaderFactory = tfReaderFactory;
@@ -72,7 +72,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				if (!result.Success)
 					return false;
 
-				if (!(result.LogRecord is PrepareLogRecord prepare))
+				if (result.LogRecord is not IPrepareLogRecord prepare)
 					throw new Exception(
 						$"Incorrect type of log record {result.LogRecord.RecordType}, " +
 						$"expected Prepare record.");

@@ -2,10 +2,10 @@
 using EventStore.Core.Services.Storage.ReaderIndex;
 
 namespace EventStore.Core.TransactionLog.Scavenging {
-	public class IndexReaderForAccumulator : IIndexReaderForAccumulator<string> {
-		private readonly IReadIndex _readIndex;
+	public class IndexReaderForAccumulator<TStreamId> : IIndexReaderForAccumulator<TStreamId> {
+		private readonly IReadIndex<TStreamId> _readIndex;
 
-		public IndexReaderForAccumulator(IReadIndex readIndex) {
+		public IndexReaderForAccumulator(IReadIndex<TStreamId> readIndex) {
 			_readIndex = readIndex;
 		}
 
@@ -38,8 +38,8 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 
 		// reads a stream backward but only returns event info not the full event.
 		public IndexReadEventInfoResult ReadEventInfoBackward(
-			string streamId,
-			StreamHandle<string> handle,
+			TStreamId streamId,
+			StreamHandle<TStreamId> handle,
 			long fromEventNumber,
 			int maxCount,
 			ScavengePoint scavengePoint) {

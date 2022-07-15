@@ -38,6 +38,7 @@ namespace EventStore.Core.Tests.Services.Storage {
 
 		protected IHasher<TStreamId> LowHasher { get; private set; }
 		protected IHasher<TStreamId> HighHasher { get; private set; }
+		protected ILongHasher<TStreamId> Hasher { get; private set; }
 
 		protected TFChunkDb Db;
 		protected TFChunkWriter Writer;
@@ -104,6 +105,7 @@ namespace EventStore.Core.Tests.Services.Storage {
 				() => new TFChunkReader(Db, Db.Config.WriterCheckpoint));
 			LowHasher ??= _logFormat.LowHasher;
 			HighHasher ??= _logFormat.HighHasher;
+			Hasher = new CompositeHasher<TStreamId>(LowHasher, HighHasher);
 			var emptyStreamId = _logFormat.EmptyStreamId;
 			TableIndex = new TableIndex<TStreamId>(indexDirectory, LowHasher, HighHasher, emptyStreamId,
 				() => new HashListMemTable(IndexBitnessVersion, MaxEntriesInMemTable * 2),

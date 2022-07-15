@@ -3,8 +3,7 @@ using EventStore.Core.Tests.Index.Hashers;
 using NUnit.Framework;
 
 namespace EventStore.Core.Tests.Services.Storage.HashCollisions {
-	[TestFixture]
-	public abstract class GetStreamLastEventNumber_KnownCollisions : ReadIndexTestScenario {
+	public abstract class GetStreamLastEventNumber_KnownCollisions : ReadIndexTestScenario<LogFormat.V2, string> {
 		private const string Stream = "ab-1";
 		private const string CollidingStream = "cb-1";
 		private const string CollidingStream1 = "db-1";

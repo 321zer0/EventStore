@@ -478,13 +478,13 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 				return ReadEventInfoForwardInternal(
 					streamId,
 					reader,
-					(self, streamHandle, reader2, startEventNumber, endEventNumber) => {
+					static (self, streamHandle, reader2, startEventNumber, endEventNumber) => {
 						return self._tableIndex.GetRange(streamHandle, startEventNumber, endEventNumber)
 							.Select(x => new { IndexEntry = x, Prepare = ReadPrepareInternal(reader2, x.Position) })
-							.Where(x => x.Prepare != null && x.Prepare.EventStreamId == streamHandle)
+							.Where(x => x.Prepare != null && StreamIdComparer.Equals(x.Prepare.EventStreamId, streamHandle))
 							.Select(x => x.IndexEntry);
 					},
-					(self, streamHandle, afterEventNumber) => {
+					static (self, streamHandle, afterEventNumber) => {
 						if (!self._tableIndex.TryGetNextEntry(streamHandle, afterEventNumber, out var entry))
 							return -1;
 
@@ -503,9 +503,9 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 			return ReadEventInfoForwardInternal(
 				stream,
 				default,
-				(self, streamHandle, reader, startEventNumber, endEventNumber) =>
+				static (self, streamHandle, reader, startEventNumber, endEventNumber) =>
 					self._tableIndex.GetRange(streamHandle, startEventNumber, endEventNumber),
-				(self, streamHandle, afterEventNumber) => {
+				static (self, streamHandle, afterEventNumber) => {
 					if (!self._tableIndex.TryGetNextEntry(streamHandle, afterEventNumber, out var entry))
 						return -1;
 
@@ -519,8 +519,8 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 		private IndexReadEventInfoResult ReadEventInfoForwardInternal<TStreamHandle>(
 			TStreamHandle streamHandle,
 			TFReaderLease reader,
-			Func<IndexReader, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
-			Func<IndexReader, TStreamHandle, long, long> getNextEventNumber,
+			Func<IndexReader<TStreamId>, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
+			Func<IndexReader<TStreamId>, TStreamHandle, long, long> getNextEventNumber,
 			long fromEventNumber,
 			int maxCount,
 			long beforePosition) {
@@ -626,13 +626,13 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 				return ReadEventInfoBackwardInternal(
 					streamId,
 					reader,
-					(self, streamHandle, reader2, startEventNumber, endEventNumber) => {
+					static (self, streamHandle, reader2, startEventNumber, endEventNumber) => {
 						return self._tableIndex.GetRange(streamHandle, startEventNumber, endEventNumber)
 							.Select(x => new { IndexEntry = x, Prepare = ReadPrepareInternal(reader2, x.Position) })
-							.Where(x => x.Prepare != null && x.Prepare.EventStreamId == streamHandle)
+							.Where(x => x.Prepare != null && StreamIdComparer.Equals(x.Prepare.EventStreamId, streamHandle))
 							.Select(x => x.IndexEntry);
 					},
-					(self, streamHandle, beforeEventNumber) => {
+					static (self, streamHandle, beforeEventNumber) => {
 						if (!self._tableIndex.TryGetPreviousEntry(streamHandle, beforeEventNumber, out var entry))
 							return -1;
 
@@ -662,9 +662,9 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 			return ReadEventInfoBackwardInternal(
 				stream,
 				default,
-				(self, streamHandle, _, startEventNumber, endEventNumber) =>
+				static (self, streamHandle, _, startEventNumber, endEventNumber) =>
 					self._tableIndex.GetRange(streamHandle, startEventNumber,  endEventNumber),
-				(self, streamHandle, beforeEventNumber) => {
+				static (self, streamHandle, beforeEventNumber) => {
 					if (!self._tableIndex.TryGetPreviousEntry(streamHandle, beforeEventNumber, out var entry))
 						return -1;
 					return entry.Version;
@@ -677,8 +677,8 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 		private IndexReadEventInfoResult ReadEventInfoBackwardInternal<TStreamHandle>(
 			TStreamHandle streamHandle,
 			TFReaderLease reader,
-			Func<IndexReader, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
-			Func<IndexReader, TStreamHandle, long, long> getNextEventNumber,
+			Func<IndexReader<TStreamId>, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
+			Func<IndexReader<TStreamId>, TStreamHandle, long, long> getNextEventNumber,
 			long fromEventNumber,
 			int maxCount,
 			long beforePosition) {
@@ -706,7 +706,7 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 		private EventInfo[] ReadEventInfoInternal<TStreamHandle>(
 			TStreamHandle streamHandle,
 			TFReaderLease reader,
-			Func<IndexReader, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
+			Func<IndexReader<TStreamId>, TStreamHandle, TFReaderLease, long, long, IEnumerable<IndexEntry>> readIndexEntries,
 			long startEventNumber,
 			long endEventNumber,
 			long beforePosition) {
@@ -782,8 +782,8 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 			}
 		}
 
-		public long GetStreamLastEventNumber_KnownCollisions(string streamId, long beforePosition) {
-			Ensure.NotNullOrEmpty(streamId, "streamId");
+		public long GetStreamLastEventNumber_KnownCollisions(TStreamId streamId, long beforePosition) {
+			Ensure.Valid(streamId, _validator);
 			using (var reader = _backend.BorrowReader()) {
 				return GetStreamLastEventNumber_KnownCollisions(streamId, beforePosition, reader);
 			}
@@ -794,7 +794,7 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 				// we know that collisions have occurred for this stream's hash prior to "beforePosition" in the log
 				// we just fetch the stream name from the log to make sure this index entry is for the correct stream
 				var prepare = ReadPrepareInternal(reader, indexEntry.Position);
-				return prepare.EventStreamId == streamId;
+				return StreamIdComparer.Equals(prepare.EventStreamId, streamId);
 			}
 
 			if (!_tableIndex.TryGetLatestEntry(streamId, beforePosition, IsForThisStream, out var entry))
@@ -805,7 +805,7 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 
 		// gets the last event number before beforePosition for the given stream hash. can assume that
 		// the hash does not collide with anything before beforePosition.
-		public long GetStreamLastEventNumber_NoCollisions(ulong stream, Func<ulong, string> getStreamId, long beforePosition) {
+		public long GetStreamLastEventNumber_NoCollisions(ulong stream, Func<ulong, TStreamId> getStreamId, long beforePosition) {
 			using (var reader = _backend.BorrowReader()) {
 				return GetStreamLastEventNumber_NoCollisions(stream, getStreamId, beforePosition, reader);
 			}
@@ -817,7 +817,7 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 			long beforePosition,
 			TFReaderLease reader) {
 
-			string streamId = null;
+			TStreamId streamId = default;
 
 			bool IsForThisStream(IndexEntry indexEntry) {
 				// we know that there are no collisions for this hash prior to "beforePosition" in the log
@@ -825,12 +825,12 @@ namespace EventStore.Core.Services.Storage.ReaderIndex {
 					return true;
 
 				// fetch the correct stream name from the log if we haven't yet
-				if (streamId == null)
+				if (StreamIdComparer.Equals(streamId, default))
 					streamId = getStreamId(stream);
 
 				// compare the correct stream name against this index entry's stream name fetched from the log
 				var prepare = ReadPrepareInternal(reader, indexEntry.Position);
-				return prepare.EventStreamId == streamId;
+				return StreamIdComparer.Equals(prepare.EventStreamId, streamId);
 			}
 
 			if (!_tableIndex.TryGetLatestEntry(stream, beforePosition, IsForThisStream, out var entry))

@@ -663,10 +663,10 @@ namespace EventStore.Core.Index {
 				try {
 					return TryGetLatestEntryInternal(stream, beforePosition, isForThisStream, out entry);
 				} catch (FileBeingDeletedException) {
-					Log.Trace("File being deleted.");
-				} catch (MaybeCorruptIndexException e) {
+					Log.Debug("File being deleted.");
+				} catch (MaybeCorruptIndexException) {
 					ForceIndexVerifyOnNextStartup();
-					throw e;
+					throw;
 				}
 			}
 
@@ -682,8 +682,6 @@ namespace EventStore.Core.Index {
 			var awaiting = _awaitingMemTables;
 
 			foreach (var t in awaiting) {
-				if (t.IsFromIndexMap)
-					continue;
 				if (t.Table.TryGetLatestEntry(stream, beforePosition, isForThisStream, out entry))
 					return true;
 			}
@@ -745,10 +743,10 @@ namespace EventStore.Core.Index {
 				try {
 					return TryGetNextEntryInternal(stream, afterVersion, out entry);
 				} catch (FileBeingDeletedException) {
-					Log.Trace("File being deleted.");
-				} catch (MaybeCorruptIndexException e) {
+					Log.Debug("File being deleted.");
+				} catch (MaybeCorruptIndexException) {
 					ForceIndexVerifyOnNextStartup();
-					throw e;
+					throw;
 				}
 			}
 
@@ -764,7 +762,6 @@ namespace EventStore.Core.Index {
 
 			var awaiting = _awaitingMemTables;
 			for (var index = awaiting.Count - 1; index >= 0; index--) {
-				if(awaiting[index].IsFromIndexMap) continue;
 				if (awaiting[index].Table.TryGetNextEntry(stream, afterVersion, out entry))
 					return true;
 			}
@@ -785,10 +782,10 @@ namespace EventStore.Core.Index {
 				try {
 					return TryGetPreviousEntryInternal(stream, beforeVersion, out entry);
 				} catch (FileBeingDeletedException) {
-					Log.Trace("File being deleted.");
-				} catch (MaybeCorruptIndexException e) {
+					Log.Debug("File being deleted.");
+				} catch (MaybeCorruptIndexException) {
 					ForceIndexVerifyOnNextStartup();
-					throw e;
+					throw;
 				}
 			}
 
@@ -799,7 +796,6 @@ namespace EventStore.Core.Index {
 			var awaiting = _awaitingMemTables;
 
 			foreach (var t in awaiting) {
-				if(t.IsFromIndexMap) continue;
 				if (t.Table.TryGetPreviousEntry(stream, beforeVersion, out entry))
 					return true;
 			}

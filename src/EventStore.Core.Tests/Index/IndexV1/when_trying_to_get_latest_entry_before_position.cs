@@ -51,7 +51,12 @@ namespace EventStore.Core.Tests.Index.IndexV1 {
 			_memTable.Add(HOutOfOrder, 0, 10);
 			_memTable.Add(HOutOfOrder, 2, 11);
 			_memTable.Add(HOutOfOrder, 1, 12);
-			_pTable = PTable.FromMemtable(_memTable, Filename, skipIndexVerify: _skipIndexVerify);
+			_pTable = PTable.FromMemtable(
+				table: _memTable,
+				filename: Filename,
+				initialReaders: Constants.PTableInitialReaderCount,
+				maxReaders: Constants.PTableMaxReaderCountDefault,
+				skipIndexVerify: _skipIndexVerify);
 		}
 
 		[TearDown]

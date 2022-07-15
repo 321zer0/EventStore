@@ -9,7 +9,7 @@ namespace EventStore.Core.Tests.Services.Storage.HashCollisions {
 	[TestFixture(33)]
 	[TestFixture(123)]
 	[TestFixture(523)]
-	public class GetStreamLastEventNumber_KnownCollisions_Randomized : ReadIndexTestScenario {
+	public class GetStreamLastEventNumber_KnownCollisions_Randomized : ReadIndexTestScenario<LogFormat.V2, string> {
 		private const string Stream = "ab-1";
 		private const string CollidingStream = "cb-1";
 

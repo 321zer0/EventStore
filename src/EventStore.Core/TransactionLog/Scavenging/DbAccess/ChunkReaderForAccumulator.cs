@@ -55,10 +55,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 				if (nextPos >= chunkEndPos) // reached the end of this logical chunk
 					break;
 
-				//qq review: i think, in v5 the replication checkpoint points to the beginning of the
-				// last replicated record, but in v21 it points to the beginning of the _next_ record
-				// may need to adjust this inequality in the forward port.
-				if (nextPos > replicationChk)
+				if (nextPos >= replicationChk)
 					throw new InvalidOperationException(
 						$"Attempt to read at position: {nextPos} which is after the " +
 						$"replication checkpoint: {replicationChk}.");

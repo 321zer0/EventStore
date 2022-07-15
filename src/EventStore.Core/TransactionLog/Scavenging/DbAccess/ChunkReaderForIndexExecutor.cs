@@ -17,7 +17,7 @@ namespace EventStore.Core.TransactionLog.Scavenging {
 					return false;
 				}
 
-				if (!(result.LogRecord is PrepareLogRecord prepare))
+				if (result.LogRecord is not IPrepareLogRecord<TStreamId> prepare)
 					throw new Exception($"Record in index at position {position} is not a prepare");
 
 				streamId = prepare.EventStreamId;
